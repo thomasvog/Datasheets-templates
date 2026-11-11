@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+.writing-mode-vertical {
+  writing-mode: vertical-rl !important;
+  transform: rotate(180deg) !important;
+  white-space: nowrap !important;
+}
+
+/* Explicit engineering typography & border alignment */
+#datasheet-a4-canvas {
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+  font-feature-settings: normal !important;
+  font-variant: normal !important;
+  letter-spacing: 0.01em !important;
+  word-spacing: normal !important;
+}
+
+#datasheet-a4-canvas,
+#datasheet-a4-canvas * {
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+#datasheet-a4-canvas table {
+  border-spacing: 0;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+#datasheet-a4-canvas th,
+#datasheet-a4-canvas td {
+  box-sizing: border-box;
+}
+
+/* Print CSS to enforce strictly 1 single A4 page */
+@page {
+  size: A4 portrait;
+  margin: 6mm 8mm;
+}
+
+@media print {
+  html, body {
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 100% !important;
+    width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  /* Hide app navigation, sidebars, buttons */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Make sure datasheet fits 100% on the single page */
+  .print-page-container {
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    transform: none !important;
+    border: 1.5px solid #000000 !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-after: avoid !important;
+    break-inside: avoid !important;
+    width: 196mm !important;
+    max-width: 196mm !important;
+    height: 284mm !important;
+    max-height: 284mm !important;
+  }
+}

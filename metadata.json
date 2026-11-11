@@ -1,0 +1,6 @@
+{
+  "name": "Industrial Datasheet Generator - ISA-20 Single Page",
+  "description": "Generador profesional de hojas de datos técnicas (datasheets) en PDF de 1 sola página para instrumentación y válvulas industriales según normas ISA-20 / ISA-TR20.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
