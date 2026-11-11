@@ -331,7 +331,7 @@ export function exportVectorPdf(
     sections.forEach((sec, sIdx) => {
       const isLastSection = sIdx === sections.length - 1;
       const extraRows = isLastSection ? spareNeeded : 0;
-      const secRowsCount = sec.rows.length + (sec.isScenarioTable && sec.scenarios ? sec.scenarios.length + 1 : 0) + extraRows;
+      const secRowsCount = sec.rows.length + (sec.isScenarioTable && sec.scenarios && sec.scenarios.length > 0 ? sec.scenarios.length + 1 : 0) + extraRows;
       
       const secH = secRowsCount * rowH;
       const secEndY = isLastSection ? notesY : (currentY + secH);
@@ -360,6 +360,8 @@ export function exportVectorPdf(
         // Scenario Header background
         pdf.setFillColor(grayFill[0], grayFill[1], grayFill[2]);
         pdf.rect(colTableX, rowY, tableW, scenHeaderH, 'F');
+        vLine(xLabel, rowY, rowY + scenHeaderH, grayBorder, 0.2);
+        vLine(xSUnit, rowY, rowY + scenHeaderH, grayBorder, 0.2);
         hLine(colTableX, colTableX + tableW, rowY + scenHeaderH, black, 0.25);
 
         pdf.setFont('helvetica', 'bold');
@@ -383,11 +385,12 @@ export function exportVectorPdf(
 
         // Scenario Rows
         sec.scenarios.forEach((scen) => {
-          hLine(colTableX, colTableX + tableW, rowY + rowH, grayBorder, 0.15);
-
           // Subtle shading for NORM column
           pdf.setFillColor(248, 248, 248);
           pdf.rect(xSNorm, rowY, wSNorm, rowH, 'F');
+          vLine(xSNorm, rowY, rowY + rowH, grayBorder, 0.2);
+          vLine(xSMax, rowY, rowY + rowH, grayBorder, 0.2);
+          hLine(colTableX, colTableX + tableW, rowY + rowH, grayBorder, 0.15);
 
           const cellTextY = rowY + rowH * 0.68;
 
