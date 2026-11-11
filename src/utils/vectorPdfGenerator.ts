@@ -81,7 +81,8 @@ export function exportVectorPdf(
 
   // Colors
   const black: RGBColor = [0, 0, 0];
-  const grayBorder: RGBColor = [180, 180, 180];
+  const borderColor: RGBColor = [0, 0, 0];
+  const borderWidth = 0.2;
   const grayFill: RGBColor = [242, 244, 246];
   const grayText: RGBColor = [90, 90, 90];
 
@@ -92,22 +93,22 @@ export function exportVectorPdf(
   };
 
   // Helper: Draw horizontal line
-  const hLine = (x1: number, x2: number, y: number, color: RGBColor = grayBorder, width = 0.2) => {
-    pdf.setDrawColor(color[0], color[1], color[2]);
-    pdf.setLineWidth(width);
+  const hLine = (x1: number, x2: number, y: number) => {
+    pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+    pdf.setLineWidth(borderWidth);
     pdf.line(x1, y, x2, y);
   };
 
   // Helper: Draw vertical line
-  const vLine = (x: number, y1: number, y2: number, color: RGBColor = grayBorder, width = 0.2) => {
-    pdf.setDrawColor(color[0], color[1], color[2]);
-    pdf.setLineWidth(width);
+  const vLine = (x: number, y1: number, y2: number) => {
+    pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+    pdf.setLineWidth(borderWidth);
     pdf.line(x, y1, x, y2);
   };
 
   // --- 1. OUTER BORDER ---
-  pdf.setDrawColor(black[0], black[1], black[2]);
-  pdf.setLineWidth(0.4);
+  pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+  pdf.setLineWidth(borderWidth);
   pdf.rect(marginX, marginY, sheetW, sheetH);
 
   // --- 2. HEADER BLOCK (Y: 6.5 -> 41.5) ---
@@ -116,9 +117,9 @@ export function exportVectorPdf(
   const hRow3H = 9.0;
 
   // Major horizontal lines in header
-  hLine(marginX, marginX + sheetW, topY + hRow1H, black, 0.35);
-  hLine(marginX, marginX + sheetW, topY + hRow1H + hRow2H, black, 0.35);
-  hLine(marginX, marginX + sheetW, columnsY, black, 0.4);
+  hLine(marginX, marginX + sheetW, topY + hRow1H);
+  hLine(marginX, marginX + sheetW, topY + hRow1H + hRow2H);
+  hLine(marginX, marginX + sheetW, columnsY);
 
   // Row 1: Company (30%), Title (45%), Tag (25%)
   const wComp = sheetW * 0.30; // 58.8mm
@@ -127,8 +128,8 @@ export function exportVectorPdf(
   const xTitle = marginX + wComp;
   const xTag = xTitle + wTitle;
 
-  vLine(xTitle, topY, topY + hRow1H, black, 0.35);
-  vLine(xTag, topY, topY + hRow1H, black, 0.35);
+  vLine(xTitle, topY, topY + hRow1H);
+  vLine(xTag, topY, topY + hRow1H);
 
   // Company Box
   pdf.setFillColor(grayFill[0], grayFill[1], grayFill[2]);
@@ -178,7 +179,7 @@ export function exportVectorPdf(
   pdf.text(truncate(docData.header.tag, 18), xTag + wTag / 2, topY + 8.8, {
     align: 'center',
   });
-  hLine(xTag, xTag + wTag, topY + 10.8, grayBorder, 0.2);
+  hLine(xTag, xTag + wTag, topY + 10.8);
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(6.2);
   pdf.text(`REV: ${docData.header.revision || '0'}`, xTag + 3, topY + 14.5);
@@ -193,9 +194,9 @@ export function exportVectorPdf(
   const colR2_3 = sheetW * 0.167; // ~32.73mm
   const colR2_4 = sheetW - colR2_1 - colR2_2 - colR2_3;
 
-  vLine(marginX + colR2_1, r2Y, r2Y + hRow2H, black, 0.35);
-  vLine(marginX + colR2_1 + colR2_2, r2Y, r2Y + hRow2H, black, 0.35);
-  vLine(marginX + colR2_1 + colR2_2 + colR2_3, r2Y, r2Y + hRow2H, black, 0.35);
+  vLine(marginX + colR2_1, r2Y, r2Y + hRow2H);
+  vLine(marginX + colR2_1 + colR2_2, r2Y, r2Y + hRow2H);
+  vLine(marginX + colR2_1 + colR2_2 + colR2_3, r2Y, r2Y + hRow2H);
 
   // Project
   pdf.setFont('helvetica', 'bold');
@@ -243,9 +244,9 @@ export function exportVectorPdf(
   // Row 3: P&ID, Line No, Location, PO No (4 equal cols = 49mm each)
   const r3Y = r2Y + hRow2H; // 32.5mm
   const colR3W = sheetW / 4; // 49.0mm
-  vLine(marginX + colR3W, r3Y, r3Y + hRow3H, black, 0.35);
-  vLine(marginX + colR3W * 2, r3Y, r3Y + hRow3H, black, 0.35);
-  vLine(marginX + colR3W * 3, r3Y, r3Y + hRow3H, black, 0.35);
+  vLine(marginX + colR3W, r3Y, r3Y + hRow3H);
+  vLine(marginX + colR3W * 2, r3Y, r3Y + hRow3H);
+  vLine(marginX + colR3W * 3, r3Y, r3Y + hRow3H);
 
   const drawHeaderField = (x: number, label: string, val: string) => {
     pdf.setFont('helvetica', 'normal');
@@ -270,9 +271,9 @@ export function exportVectorPdf(
   const xColRight = marginX + colW;
 
   // Unbroken center vertical divider between columns
-  vLine(xColRight, columnsY, notesY, black, 0.4);
+  vLine(xColRight, columnsY, notesY);
   // Unbroken horizontal divider above notes
-  hLine(marginX, marginX + sheetW, notesY, black, 0.4);
+  hLine(marginX, marginX + sheetW, notesY);
 
   // Helper to count rows
   const countColumnRows = (sections: SectionBlock[]) => {
@@ -338,17 +339,17 @@ export function exportVectorPdf(
 
       // Section vertical label badge
       pdf.setFillColor(grayFill[0], grayFill[1], grayFill[2]);
-      pdf.setDrawColor(black[0], black[1], black[2]);
-      pdf.setLineWidth(0.35);
+      pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+      pdf.setLineWidth(borderWidth);
       pdf.rect(colStartX, currentY, badgeW, secEndY - currentY, 'FD');
 
       // Rotated text for badge (centered with zero offset)
       drawVerticalBadgeText(pdf, sec.name, colStartX, currentY, badgeW, secEndY - currentY, 6.2, black);
 
       // Continuous vertical lines from section top to bottom:
-      vLine(xLabel, currentY, secEndY, grayBorder, 0.2);
-      vLine(xUnit, currentY, secEndY, grayBorder, 0.2);
-      vLine(xVal, currentY, secEndY, grayBorder, 0.2);
+      vLine(xLabel, currentY, secEndY);
+      vLine(xUnit, currentY, secEndY);
+      vLine(xVal, currentY, secEndY);
 
       let rowY = currentY;
 
@@ -360,9 +361,9 @@ export function exportVectorPdf(
         // Scenario Header background
         pdf.setFillColor(grayFill[0], grayFill[1], grayFill[2]);
         pdf.rect(colTableX, rowY, tableW, scenHeaderH, 'F');
-        vLine(xLabel, rowY, rowY + scenHeaderH, grayBorder, 0.2);
-        vLine(xSUnit, rowY, rowY + scenHeaderH, grayBorder, 0.2);
-        hLine(colTableX, colTableX + tableW, rowY + scenHeaderH, black, 0.25);
+        vLine(xLabel, rowY, rowY + scenHeaderH);
+        vLine(xSUnit, rowY, rowY + scenHeaderH);
+        hLine(colTableX, colTableX + tableW, rowY + scenHeaderH);
 
         pdf.setFont('helvetica', 'bold');
         pdf.setFontSize(5.3);
@@ -377,9 +378,9 @@ export function exportVectorPdf(
         pdf.text('MÁX', xSMax + wSMax / 2, rowY + textYOffset, { align: 'center' });
 
         // Continuous vertical lines for scenario table sub-columns
-        vLine(xSMin, currentY, scenRowsEndY, grayBorder, 0.2);
-        vLine(xSNorm, currentY, scenRowsEndY, grayBorder, 0.2);
-        vLine(xSMax, currentY, scenRowsEndY, grayBorder, 0.2);
+        vLine(xSMin, currentY, scenRowsEndY);
+        vLine(xSNorm, currentY, scenRowsEndY);
+        vLine(xSMax, currentY, scenRowsEndY);
 
         rowY += scenHeaderH;
 
@@ -388,9 +389,9 @@ export function exportVectorPdf(
           // Subtle shading for NORM column
           pdf.setFillColor(248, 248, 248);
           pdf.rect(xSNorm, rowY, wSNorm, rowH, 'F');
-          vLine(xSNorm, rowY, rowY + rowH, grayBorder, 0.2);
-          vLine(xSMax, rowY, rowY + rowH, grayBorder, 0.2);
-          hLine(colTableX, colTableX + tableW, rowY + rowH, grayBorder, 0.15);
+          vLine(xSNorm, rowY, rowY + rowH);
+          vLine(xSMax, rowY, rowY + rowH);
+          hLine(colTableX, colTableX + tableW, rowY + rowH);
 
           const cellTextY = rowY + rowH * 0.68;
 
@@ -425,7 +426,7 @@ export function exportVectorPdf(
       // Regular Property Rows
       let lastRowNum = 0;
       sec.rows.forEach((row) => {
-        hLine(colTableX, colTableX + tableW, rowY + rowH, grayBorder, 0.15);
+        hLine(colTableX, colTableX + tableW, rowY + rowH);
 
         const cellTextY = rowY + rowH * 0.68;
         const numVal = typeof row.num === 'number' ? row.num : parseInt(String(row.num), 10);
@@ -462,7 +463,7 @@ export function exportVectorPdf(
       if (isLastSection && spareNeeded > 0) {
         for (let sp = 0; sp < spareNeeded; sp++) {
           const spNum = lastRowNum ? lastRowNum + 1 + sp : '';
-          hLine(colTableX, colTableX + tableW, rowY + rowH, grayBorder, 0.15);
+          hLine(colTableX, colTableX + tableW, rowY + rowH);
 
           if (spNum) {
             pdf.setFont('helvetica', 'normal');
@@ -476,7 +477,7 @@ export function exportVectorPdf(
       }
 
       // Section boundary bottom line
-      hLine(colStartX, colStartX + colW, secEndY, black, 0.35);
+      hLine(colStartX, colStartX + colW, secEndY);
       currentY = secEndY;
     });
   };
@@ -493,8 +494,8 @@ export function exportVectorPdf(
 
   // Vertical NOTAS Badge
   pdf.setFillColor(grayFill[0], grayFill[1], grayFill[2]);
-  pdf.setDrawColor(black[0], black[1], black[2]);
-  pdf.setLineWidth(0.35);
+  pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+  pdf.setLineWidth(borderWidth);
   pdf.rect(marginX, notesY, badgeNotesW, notesH, 'FD');
 
   // Exact vertical NOTAS text
@@ -506,13 +507,13 @@ export function exportVectorPdf(
   const xNoteText = xNoteNum + wNoteNum; // 20.7mm
 
   // Continuous vertical line dividing number from note text
-  vLine(xNoteText, notesY, notesY + notesH, grayBorder, 0.2);
-  hLine(marginX, marginX + sheetW, approvalsY, black, 0.4);
+  vLine(xNoteText, notesY, notesY + notesH);
+  hLine(marginX, marginX + sheetW, approvalsY);
 
   for (let i = 0; i < 5; i++) {
     const rowTopY = notesY + i * noteRowH;
     if (i > 0) {
-      hLine(xNoteNum, marginX + sheetW, rowTopY, grayBorder, 0.15);
+      hLine(xNoteNum, marginX + sheetW, rowTopY);
     }
 
     const note = docData.notes[i];
@@ -536,9 +537,9 @@ export function exportVectorPdf(
 
   // --- 5. APPROVALS FOOTER (Y: 268.0 -> 290.5) ---
   const colApprW = sheetW / 4; // 49.0mm each
-  vLine(marginX + colApprW, approvalsY, sheetBottomY, black, 0.35);
-  vLine(marginX + colApprW * 2, approvalsY, sheetBottomY, black, 0.35);
-  vLine(marginX + colApprW * 3, approvalsY, sheetBottomY, black, 0.35);
+  vLine(marginX + colApprW, approvalsY, sheetBottomY);
+  vLine(marginX + colApprW * 2, approvalsY, sheetBottomY);
+  vLine(marginX + colApprW * 3, approvalsY, sheetBottomY);
 
   const approvalsList = docData.approvals && docData.approvals.length > 0
     ? docData.approvals
