@@ -365,71 +365,72 @@ const RenderSection: React.FC<RenderSectionProps> = ({
       <div className="flex-1 min-w-0 flex flex-col divide-y divide-neutral-200">
         {/* Optional Scenario Table (Min / Norm / Max) */}
         {section.isScenarioTable && section.scenarios && section.scenarios.length > 0 && (
-          <div className="w-full flex flex-col border-b border-neutral-300">
+          <div className="w-full flex flex-col">
             {/* Scenario Header */}
-            <div className="flex bg-neutral-100 border-b border-neutral-300 text-[5.6pt] font-black uppercase text-neutral-800">
+            <div className="flex px-[3px] bg-neutral-100 border-b border-neutral-300 text-[5.6pt] font-black uppercase text-neutral-800">
               <div className="w-[20px] text-center shrink-0">#</div>
-              <div className="flex-1 px-1.5">CONDICIÓN DE PROCESO</div>
-              <div className="w-[30px] text-center border-l border-neutral-200">UNIDAD</div>
-              <div className="w-[30px] text-center border-l border-neutral-200">MÍN</div>
-              <div className="w-[34px] text-center border-l border-neutral-200 bg-neutral-200/60 font-black">NORM</div>
-              <div className="w-[30px] text-center border-l border-neutral-200">MÁX</div>
+              <div className="flex-1 min-w-0 px-1.5 border-l border-neutral-200">CONDICIÓN DE PROCESO</div>
+              <div className="w-[28px] text-center border-l border-neutral-200 shrink-0" />
+              <div className="w-[48%] shrink-0 flex border-l border-neutral-200">
+                <div className="flex-1 min-w-0 text-center">MÍN</div>
+                <div className="flex-1 min-w-0 text-center border-l border-neutral-200 bg-neutral-200/60 font-black">NORM</div>
+                <div className="flex-1 min-w-0 text-center border-l border-neutral-200">MÁX</div>
+              </div>
             </div>
 
             {/* Scenario Rows */}
             {section.scenarios.map((scen, sIdx) => (
               <div
                 key={sIdx}
-                className="flex items-center text-[6.6pt] border-b border-neutral-100 last:border-b-0"
+                className="flex items-center px-[3px] text-[6.6pt] border-b border-neutral-100 last:border-b-0"
                 style={{ minHeight: density.minH, paddingTop: density.padY, paddingBottom: density.padY }}
               >
-                <div className="w-[20px] text-center text-neutral-500 font-mono text-[5.6pt] shrink-0 font-medium">
+                <div className="w-[20px] text-right pr-1 text-neutral-500 font-mono text-[5.8pt] shrink-0 font-medium">
                   {scen.num}
                 </div>
-                <div className="flex-1 min-w-0 px-1.5 font-semibold text-neutral-900 break-words">
+                <div className="flex-1 min-w-0 self-stretch flex items-center px-1.5 font-semibold text-neutral-900 break-words border-l border-neutral-200 text-[6.7pt] leading-[1.15]">
                   {scen.label}
                 </div>
-                <div className="w-[30px] text-center text-[5.6pt] text-neutral-600 font-mono border-l border-neutral-200">
+                <div className="w-[28px] shrink-0 text-center text-[5.8pt] text-neutral-600 font-mono border-l border-neutral-200">
                   {scen.unit}
                 </div>
-                {/* Min */}
-                <div className="w-[30px] text-center border-l border-neutral-200">
-                  {inlineEdit ? (
-                    <input
-                      type="text"
-                      value={scen.min}
-                      onChange={(e) => onUpdateScenario(sIdx, 'min', e.target.value)}
-                      className="w-full text-center bg-transparent text-[6pt] focus:bg-blue-50 focus:outline-none"
-                    />
-                  ) : (
-                    <span className="text-neutral-800 font-mono font-medium">{scen.min}</span>
-                  )}
-                </div>
-                {/* Norm */}
-                <div className="w-[34px] text-center border-l border-neutral-200 font-bold bg-neutral-50">
-                  {inlineEdit ? (
-                    <input
-                      type="text"
-                      value={scen.norm}
-                      onChange={(e) => onUpdateScenario(sIdx, 'norm', e.target.value)}
-                      className="w-full text-center bg-transparent font-bold text-[6.6pt] focus:bg-blue-50 focus:outline-none"
-                    />
-                  ) : (
-                    <span className="text-black font-mono font-bold">{scen.norm}</span>
-                  )}
-                </div>
-                {/* Max */}
-                <div className="w-[30px] text-center border-l border-neutral-200">
-                  {inlineEdit ? (
-                    <input
-                      type="text"
-                      value={scen.max}
-                      onChange={(e) => onUpdateScenario(sIdx, 'max', e.target.value)}
-                      className="w-full text-center bg-transparent text-[6pt] focus:bg-blue-50 focus:outline-none"
-                    />
-                  ) : (
-                    <span className="text-neutral-800 font-mono font-medium">{scen.max}</span>
-                  )}
+                <div className="w-[48%] shrink-0 self-stretch flex border-l border-neutral-200">
+                  <div className="flex-1 min-w-0 flex items-center justify-center">
+                    {inlineEdit ? (
+                      <input
+                        type="text"
+                        value={scen.min}
+                        onChange={(e) => onUpdateScenario(sIdx, 'min', e.target.value)}
+                        className="w-full text-center bg-transparent text-[6pt] focus:bg-blue-50 focus:outline-none"
+                      />
+                    ) : (
+                      <span className="text-neutral-800 font-mono font-medium">{scen.min}</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0 flex items-center justify-center border-l border-neutral-200 font-bold bg-neutral-50">
+                    {inlineEdit ? (
+                      <input
+                        type="text"
+                        value={scen.norm}
+                        onChange={(e) => onUpdateScenario(sIdx, 'norm', e.target.value)}
+                        className="w-full text-center bg-transparent font-bold text-[6.6pt] focus:bg-blue-50 focus:outline-none"
+                      />
+                    ) : (
+                      <span className="text-black font-mono font-bold">{scen.norm}</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0 flex items-center justify-center border-l border-neutral-200">
+                    {inlineEdit ? (
+                      <input
+                        type="text"
+                        value={scen.max}
+                        onChange={(e) => onUpdateScenario(sIdx, 'max', e.target.value)}
+                        className="w-full text-center bg-transparent text-[6pt] focus:bg-blue-50 focus:outline-none"
+                      />
+                    ) : (
+                      <span className="text-neutral-800 font-mono font-medium">{scen.max}</span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

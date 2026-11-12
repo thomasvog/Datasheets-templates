@@ -1,4 +1,4 @@
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import { DatasheetDocument, SectionBlock, ScenarioItem } from '../types/datasheet';
 
 type RGBColor = readonly [number, number, number];
@@ -82,7 +82,10 @@ export function exportVectorPdf(
   // Colors
   const black: RGBColor = [0, 0, 0];
   const borderColor: RGBColor = [0, 0, 0];
-  const borderWidth = 0.2;
+  const gridColor: RGBColor = [175, 175, 175];
+  const borderWidth = 0.12;
+  const majorBorderWidth = 0.42;
+  const sectionBorderWidth = 0.24;
   const grayFill: RGBColor = [242, 244, 246];
   const grayText: RGBColor = [90, 90, 90];
 
@@ -94,21 +97,33 @@ export function exportVectorPdf(
 
   // Helper: Draw horizontal line
   const hLine = (x1: number, x2: number, y: number) => {
-    pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+    pdf.setDrawColor(gridColor[0], gridColor[1], gridColor[2]);
     pdf.setLineWidth(borderWidth);
     pdf.line(x1, y, x2, y);
   };
 
   // Helper: Draw vertical line
   const vLine = (x: number, y1: number, y2: number) => {
-    pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+    pdf.setDrawColor(gridColor[0], gridColor[1], gridColor[2]);
     pdf.setLineWidth(borderWidth);
+    pdf.line(x, y1, x, y2);
+  };
+
+  const majorHLine = (x1: number, x2: number, y: number) => {
+    pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+    pdf.setLineWidth(majorBorderWidth);
+    pdf.line(x1, y, x2, y);
+  };
+
+  const majorVLine = (x: number, y1: number, y2: number) => {
+    pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+    pdf.setLineWidth(majorBorderWidth);
     pdf.line(x, y1, x, y2);
   };
 
   // --- 1. OUTER BORDER ---
   pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
-  pdf.setLineWidth(borderWidth);
+  pdf.setLineWidth(majorBorderWidth);
   pdf.rect(marginX, marginY, sheetW, sheetH);
 
   // --- 2. HEADER BLOCK (Y: 6.5 -> 41.5) ---
@@ -117,9 +132,9 @@ export function exportVectorPdf(
   const hRow3H = 9.0;
 
   // Major horizontal lines in header
-  hLine(marginX, marginX + sheetW, topY + hRow1H);
-  hLine(marginX, marginX + sheetW, topY + hRow1H + hRow2H);
-  hLine(marginX, marginX + sheetW, columnsY);
+  majorHLine(marginX, marginX + sheetW, topY + hRow1H);
+  majorHLine(marginX, marginX + sheetW, topY + hRow1H + hRow2H);
+  majorHLine(marginX, marginX + sheetW, columnsY);
 
   // Row 1: Company (30%), Title (45%), Tag (25%)
   const wComp = sheetW * 0.30; // 58.8mm
@@ -271,9 +286,9 @@ export function exportVectorPdf(
   const xColRight = marginX + colW;
 
   // Unbroken center vertical divider between columns
-  vLine(xColRight, columnsY, notesY);
+  majorVLine(xColRight, columnsY, notesY);
   // Unbroken horizontal divider above notes
-  hLine(marginX, marginX + sheetW, notesY);
+  majorHLine(marginX, marginX + sheetW, notesY);
 
   // Helper to count rows
   const countColumnRows = (sections: SectionBlock[]) => {
@@ -339,9 +354,10 @@ export function exportVectorPdf(
 
       // Section vertical label badge
       pdf.setFillColor(grayFill[0], grayFill[1], grayFill[2]);
+      pdf.rect(colStartX, currentY, badgeW, secEndY - currentY, 'F');
       pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
-      pdf.setLineWidth(borderWidth);
-      pdf.rect(colStartX, currentY, badgeW, secEndY - currentY, 'FD');
+      pdf.setLineWidth(sectionBorderWidth);
+      pdf.line(colTableX, currentY, colTableX, secEndY);
 
       // Rotated text for badge (centered with zero offset)
       drawVerticalBadgeText(pdf, sec.name, colStartX, currentY, badgeW, secEndY - currentY, 6.2, black);
@@ -372,7 +388,6 @@ export function exportVectorPdf(
         const textYOffset = scenHeaderH * 0.68;
         pdf.text('#', xNum + wNum / 2, rowY + textYOffset, { align: 'center' });
         pdf.text('CONDICIÓN DE PROCESO', xLabel + 1.5, rowY + textYOffset);
-        pdf.text('UNIDAD', xSUnit + wSUnit / 2, rowY + textYOffset, { align: 'center' });
         pdf.text('MÍN', xSMin + wSMin / 2, rowY + textYOffset, { align: 'center' });
         pdf.text('NORM', xSNorm + wSNorm / 2, rowY + textYOffset, { align: 'center' });
         pdf.text('MÁX', xSMax + wSMax / 2, rowY + textYOffset, { align: 'center' });
@@ -385,13 +400,15 @@ export function exportVectorPdf(
         rowY += scenHeaderH;
 
         // Scenario Rows
-        sec.scenarios.forEach((scen) => {
+        sec.scenarios.forEach((scen, scenIdx) => {
           // Subtle shading for NORM column
           pdf.setFillColor(248, 248, 248);
           pdf.rect(xSNorm, rowY, wSNorm, rowH, 'F');
           vLine(xSNorm, rowY, rowY + rowH);
           vLine(xSMax, rowY, rowY + rowH);
-          hLine(colTableX, colTableX + tableW, rowY + rowH);
+          if (scenIdx < (sec.scenarios?.length ?? 0) - 1 || sec.rows.length > 0 || extraRows > 0) {
+            hLine(colTableX, colTableX + tableW, rowY + rowH);
+          }
 
           const cellTextY = rowY + rowH * 0.68;
 
@@ -425,8 +442,10 @@ export function exportVectorPdf(
 
       // Regular Property Rows
       let lastRowNum = 0;
-      sec.rows.forEach((row) => {
-        hLine(colTableX, colTableX + tableW, rowY + rowH);
+      sec.rows.forEach((row, rowIdx) => {
+        if (rowIdx < sec.rows.length - 1 || extraRows > 0) {
+          hLine(colTableX, colTableX + tableW, rowY + rowH);
+        }
 
         const cellTextY = rowY + rowH * 0.68;
         const numVal = typeof row.num === 'number' ? row.num : parseInt(String(row.num), 10);
@@ -463,7 +482,9 @@ export function exportVectorPdf(
       if (isLastSection && spareNeeded > 0) {
         for (let sp = 0; sp < spareNeeded; sp++) {
           const spNum = lastRowNum ? lastRowNum + 1 + sp : '';
-          hLine(colTableX, colTableX + tableW, rowY + rowH);
+          if (sp < spareNeeded - 1) {
+            hLine(colTableX, colTableX + tableW, rowY + rowH);
+          }
 
           if (spNum) {
             pdf.setFont('helvetica', 'normal');
@@ -477,7 +498,11 @@ export function exportVectorPdf(
       }
 
       // Section boundary bottom line
-      hLine(colStartX, colStartX + colW, secEndY);
+      if (!isLastSection) {
+        pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+        pdf.setLineWidth(sectionBorderWidth);
+        pdf.line(colStartX, secEndY, colStartX + colW, secEndY);
+      }
       currentY = secEndY;
     });
   };
@@ -494,9 +519,10 @@ export function exportVectorPdf(
 
   // Vertical NOTAS Badge
   pdf.setFillColor(grayFill[0], grayFill[1], grayFill[2]);
+  pdf.rect(marginX, notesY, badgeNotesW, notesH, 'F');
   pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
-  pdf.setLineWidth(borderWidth);
-  pdf.rect(marginX, notesY, badgeNotesW, notesH, 'FD');
+  pdf.setLineWidth(sectionBorderWidth);
+  pdf.line(marginX + badgeNotesW, notesY, marginX + badgeNotesW, notesY + notesH);
 
   // Exact vertical NOTAS text
   drawVerticalBadgeText(pdf, 'NOTAS', marginX, notesY, badgeNotesW, notesH, 6.5, black);
@@ -508,7 +534,7 @@ export function exportVectorPdf(
 
   // Continuous vertical line dividing number from note text
   vLine(xNoteText, notesY, notesY + notesH);
-  hLine(marginX, marginX + sheetW, approvalsY);
+  majorHLine(marginX, marginX + sheetW, approvalsY);
 
   for (let i = 0; i < 5; i++) {
     const rowTopY = notesY + i * noteRowH;

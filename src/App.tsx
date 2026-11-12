@@ -76,7 +76,7 @@ export default function App() {
     setIsGeneratingPdf(true);
     try {
       const fileName = `${currentDoc.header.tag || 'Datasheet'}_ISA20.pdf`;
-      await exportDatasheetToPdf('datasheet-a4-canvas', fileName);
+      await exportDatasheetToPdf(currentDoc, fileName);
       showToast(
         sheetOverflow
           ? `PDF descargado: ${fileName} (⚠ parte del contenido quedó recortado)`
