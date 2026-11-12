@@ -231,7 +231,7 @@ export const DatasheetPreview: React.FC<DatasheetPreviewProps> = ({
         {/* 2. MAIN BODY: 2 SYMMETRICAL COLUMNS (Fills all available height down to Notes) */}
         <div ref={columnsRef} className="flex flex-1 min-h-0 w-full border-b-[0.5px] border-neutral-500 overflow-hidden">
           {/* LEFT COLUMN */}
-          <div className="w-1/2 min-w-0 border-r-[0.5px] border-neutral-500 flex flex-col justify-start divide-y divide-neutral-500">
+          <div className="w-1/2 min-w-0 border-r-[0.5px] border-neutral-500 flex flex-col justify-start">
             {doc.leftSections.map((sec, secIdx) => (
               <RenderSection
                 key={sec.id || `left-${secIdx}`}
@@ -247,7 +247,7 @@ export const DatasheetPreview: React.FC<DatasheetPreviewProps> = ({
           </div>
 
           {/* RIGHT COLUMN */}
-          <div className="w-1/2 min-w-0 flex flex-col justify-start divide-y divide-neutral-500">
+          <div className="w-1/2 min-w-0 flex flex-col justify-start">
             {doc.rightSections.map((sec, secIdx) => (
               <RenderSection
                 key={sec.id || `right-${secIdx}`}
@@ -353,7 +353,7 @@ const RenderSection: React.FC<RenderSectionProps> = ({
   onUpdateScenario,
 }) => {
   return (
-    <div className="flex w-full min-w-0 flex-grow-0">
+    <div className="flex w-full min-w-0 flex-grow-0 border-b border-neutral-500">
       {/* Vertical Section Label on left edge */}
       <div className="w-[18px] bg-neutral-100 border-r border-neutral-500 flex items-center justify-center p-0.5 select-none shrink-0">
         <span className="writing-mode-vertical text-[6.5pt] font-black tracking-widest text-neutral-900 text-center uppercase">
