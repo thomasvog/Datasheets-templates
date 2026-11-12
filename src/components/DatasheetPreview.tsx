@@ -353,10 +353,13 @@ const RenderSection: React.FC<RenderSectionProps> = ({
   onUpdateScenario,
 }) => {
   return (
-    <div className="flex w-full min-w-0 flex-grow-0 border-b border-neutral-500">
+    <div
+      className="flex w-full min-w-0 flex-grow-0"
+      style={{ borderBottom: '1px solid #737373' }}
+    >
       {/* Vertical Section Label on left edge */}
       <div className="w-[18px] bg-neutral-100 border-r border-neutral-500 flex items-center justify-center p-0.5 select-none shrink-0">
-        <span className="writing-mode-vertical text-[6.5pt] font-black tracking-widest text-neutral-900 text-center uppercase">
+        <span className="writing-mode-vertical text-[6.5pt] font-normal tracking-widest text-neutral-900 text-center uppercase">
           {section.name}
         </span>
       </div>
@@ -367,13 +370,13 @@ const RenderSection: React.FC<RenderSectionProps> = ({
         {section.isScenarioTable && section.scenarios && section.scenarios.length > 0 && (
           <div className="w-full flex flex-col">
             {/* Scenario Header */}
-            <div className="flex px-[3px] bg-neutral-100 border-b border-neutral-300 text-[5.6pt] font-black uppercase text-neutral-800">
+            <div className="flex px-[3px] bg-neutral-100 border-b border-neutral-300 text-[5.6pt] font-normal uppercase text-neutral-800 whitespace-nowrap overflow-hidden">
               <div className="w-[20px] text-center shrink-0">#</div>
               <div className="flex-1 min-w-0 px-1.5 border-l border-neutral-200">CONDICIÓN DE PROCESO</div>
               <div className="w-[28px] text-center border-l border-neutral-200 shrink-0" />
               <div className="w-[48%] shrink-0 flex border-l border-neutral-200">
                 <div className="flex-1 min-w-0 text-center">MÍN</div>
-                <div className="flex-1 min-w-0 text-center border-l border-neutral-200 bg-neutral-200/60 font-black">NORM</div>
+                <div className="flex-1 min-w-0 text-center border-l border-neutral-200 bg-neutral-200/60 font-normal">NORM</div>
                 <div className="flex-1 min-w-0 text-center border-l border-neutral-200">MÁX</div>
               </div>
             </div>
@@ -382,20 +385,20 @@ const RenderSection: React.FC<RenderSectionProps> = ({
             {section.scenarios.map((scen, sIdx) => (
               <div
                 key={sIdx}
-                className="flex items-center px-[3px] text-[6.6pt] border-b border-neutral-100 last:border-b-0"
+                className="flex items-center px-[3px] text-[6.6pt] border-b border-neutral-100 last:border-b-0 whitespace-nowrap"
                 style={{ minHeight: density.minH, paddingTop: density.padY, paddingBottom: density.padY }}
               >
-                <div className="w-[20px] text-right pr-1 text-neutral-500 font-mono text-[5.8pt] shrink-0 font-medium">
+                <div className="w-[20px] text-right pr-1 text-neutral-500 font-mono text-[5.8pt] shrink-0 font-normal">
                   {scen.num}
                 </div>
-                <div className="flex-1 min-w-0 self-stretch flex items-center px-1.5 font-semibold text-neutral-900 break-words border-l border-neutral-200 text-[6.7pt] leading-[1.15]">
+                <div title={scen.label} className="flex-1 min-w-0 self-stretch flex items-center px-1.5 font-normal text-neutral-900 truncate border-l border-neutral-200 text-[6.7pt] leading-[1.15]">
                   {scen.label}
                 </div>
-                <div className="w-[28px] shrink-0 text-center text-[5.8pt] text-neutral-600 font-mono border-l border-neutral-200">
+                <div className="w-[28px] shrink-0 text-center text-[5.8pt] text-neutral-600 font-mono font-normal border-l border-neutral-200 whitespace-nowrap overflow-hidden">
                   {scen.unit}
                 </div>
                 <div className="w-[48%] shrink-0 self-stretch flex border-l border-neutral-200">
-                  <div className="flex-1 min-w-0 flex items-center justify-center">
+                  <div className="flex-1 min-w-0 flex items-center justify-center whitespace-nowrap overflow-hidden">
                     {inlineEdit ? (
                       <input
                         type="text"
@@ -404,22 +407,22 @@ const RenderSection: React.FC<RenderSectionProps> = ({
                         className="w-full text-center bg-transparent text-[6pt] focus:bg-blue-50 focus:outline-none"
                       />
                     ) : (
-                      <span className="text-neutral-800 font-mono font-medium">{scen.min}</span>
+                      <span className="text-neutral-800 font-mono font-normal">{scen.min}</span>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0 flex items-center justify-center border-l border-neutral-200 font-bold bg-neutral-50">
+                  <div className="flex-1 min-w-0 flex items-center justify-center border-l border-neutral-200 font-normal bg-neutral-50 whitespace-nowrap overflow-hidden">
                     {inlineEdit ? (
                       <input
                         type="text"
                         value={scen.norm}
                         onChange={(e) => onUpdateScenario(sIdx, 'norm', e.target.value)}
-                        className="w-full text-center bg-transparent font-bold text-[6.6pt] focus:bg-blue-50 focus:outline-none"
+                        className="w-full text-center bg-transparent font-normal text-[6.6pt] focus:bg-blue-50 focus:outline-none"
                       />
                     ) : (
-                      <span className="text-black font-mono font-bold">{scen.norm}</span>
+                      <span className="text-black font-mono font-normal">{scen.norm}</span>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0 flex items-center justify-center border-l border-neutral-200">
+                  <div className="flex-1 min-w-0 flex items-center justify-center border-l border-neutral-200 whitespace-nowrap overflow-hidden">
                     {inlineEdit ? (
                       <input
                         type="text"
@@ -428,7 +431,7 @@ const RenderSection: React.FC<RenderSectionProps> = ({
                         className="w-full text-center bg-transparent text-[6pt] focus:bg-blue-50 focus:outline-none"
                       />
                     ) : (
-                      <span className="text-neutral-800 font-mono font-medium">{scen.max}</span>
+                      <span className="text-neutral-800 font-mono font-normal">{scen.max}</span>
                     )}
                   </div>
                 </div>
@@ -441,32 +444,32 @@ const RenderSection: React.FC<RenderSectionProps> = ({
         {section.rows.map((row, rIdx) => (
           <div
             key={rIdx}
-            className="flex items-center px-[3px] hover:bg-neutral-50"
+            className="flex items-center px-[3px] hover:bg-neutral-50 whitespace-nowrap"
             style={{ minHeight: density.minH, paddingTop: density.padY, paddingBottom: density.padY }}
           >
             {/* Row Number */}
-            <span className="w-[20px] text-right pr-1 text-neutral-500 font-mono text-[5.8pt] shrink-0 font-medium">
+            <span className="w-[20px] text-right pr-1 text-neutral-500 font-mono text-[5.8pt] shrink-0 font-normal whitespace-nowrap overflow-hidden">
               {row.num}
             </span>
 
             {/* Parameter Label */}
-            <span className="flex-1 min-w-0 self-stretch flex items-center px-1.5 font-semibold text-neutral-800 break-words border-l border-neutral-200 text-[6.7pt] leading-[1.15]">
+            <span title={row.label} className="flex-1 min-w-0 self-stretch flex items-center px-1.5 font-normal text-neutral-800 truncate border-l border-neutral-200 text-[6.7pt] leading-[1.15]">
               {row.label}
             </span>
 
             {/* Unit Column (always consistent) */}
-            <span className="w-[28px] text-center text-neutral-600 font-mono text-[5.8pt] border-l border-neutral-200 shrink-0">
+            <span className="w-[28px] text-center text-neutral-600 font-mono font-normal text-[5.8pt] border-l border-neutral-200 shrink-0 whitespace-nowrap overflow-hidden">
               {row.unit || ''}
             </span>
 
             {/* Value Column */}
-            <div className="w-[48%] shrink-0 min-w-0 self-stretch flex items-center px-1.5 text-left font-bold text-black border-l border-neutral-200 break-words text-[7.2pt] leading-[1.15]">
+            <div title={row.value} className="w-[48%] shrink-0 min-w-0 self-stretch flex items-center px-1.5 text-left font-normal text-black border-l border-neutral-200 truncate text-[7.2pt] leading-[1.15]">
               {inlineEdit ? (
                 <input
                   type="text"
                   value={row.value}
                   onChange={(e) => onUpdateRow(rIdx, e.target.value)}
-                  className="w-full min-w-0 bg-transparent font-bold focus:bg-blue-50 focus:outline-none px-0.5"
+                  className="w-full min-w-0 bg-transparent font-normal focus:bg-blue-50 focus:outline-none px-0.5"
                 />
               ) : (
                 <span>{row.value}</span>
