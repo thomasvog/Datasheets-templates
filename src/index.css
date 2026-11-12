@@ -1,12 +1,13 @@
 @import "tailwindcss";
 
-.writing-mode-vertical {
-  writing-mode: vertical-rl !important;
-  transform: rotate(180deg) !important;
-  white-space: nowrap !important;
+@layer utilities {
+  .writing-mode-vertical {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+  }
 }
 
-/* Explicit engineering typography & border alignment */
+/* Explicit engineering typography for the canvas to avoid word collapsing */
 #datasheet-a4-canvas {
   font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
   font-feature-settings: normal !important;
@@ -15,27 +16,22 @@
   word-spacing: normal !important;
 }
 
-#datasheet-a4-canvas,
 #datasheet-a4-canvas * {
   font-family: inherit;
-  box-sizing: border-box;
 }
 
-#datasheet-a4-canvas table {
-  border-spacing: 0;
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-
-#datasheet-a4-canvas th,
-#datasheet-a4-canvas td {
-  box-sizing: border-box;
+/* Hidden copy of the sheet used for PDF export / print when the sheet tab is not visible */
+.offscreen-sheet {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  pointer-events: none;
 }
 
 /* Print CSS to enforce strictly 1 single A4 page */
 @page {
   size: A4 portrait;
-  margin: 6mm 8mm;
+  margin: 6mm 7mm;
 }
 
 @media print {
@@ -46,6 +42,31 @@
     height: 100% !important;
     width: 100% !important;
     overflow: hidden !important;
+  }
+
+  .offscreen-sheet {
+    position: static !important;
+  }
+
+  /* The on-screen zoom must never affect the printed size */
+  .sheet-scale-wrapper {
+    width: 196mm !important;
+    height: 284mm !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+  .sheet-scale-inner {
+    transform: none !important;
+  }
+
+  /* Page chrome must not clip or add extra pages */
+  #root, main, main > div {
+    display: block !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 0 !important;
   }
 
   /* Hide app navigation, sidebars, buttons */

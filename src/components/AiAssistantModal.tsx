@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Sparkles, X, Loader2, Check, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, X, Loader2, Check, ArrowRight } from 'lucide-react';
 import { DatasheetDocument, InstrumentCategory } from '../types/datasheet';
+import { normalizeDatasheet } from '../utils/normalizeDoc';
 
 interface AiAssistantModalProps {
   isOpen: boolean;
@@ -60,6 +61,16 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [previewResult, setPreviewResult] = useState<DatasheetDocument | null>(null);
 
+  // Re-sync when the modal is reopened (component stays mounted while closed)
+  useEffect(() => {
+    if (isOpen) {
+      setCategory(currentDoc.category || 'valve');
+      setError(null);
+      setPreviewResult(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleGenerate = async () => {
@@ -80,13 +91,18 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
         }),
       });
 
-      const data = await response.json();
+      let data: { success?: boolean; error?: string; datasheet?: unknown } = {};
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(`Respuesta inválida del servidor (HTTP ${response.status}).`);
+      }
 
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Error al comunicarse con el asistente de ingeniería.');
       }
 
-      setPreviewResult(data.datasheet);
+      setPreviewResult(normalizeDatasheet(data.datasheet));
     } catch (err: unknown) {
       console.error(err);
       setError(err instanceof Error ? err.message : String(err));
@@ -115,7 +131,7 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
               <h2 className="text-sm font-bold text-white flex items-center gap-2">
                 Asistente de Ingeniería ISA-20
                 <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 bg-blue-950 text-blue-300 rounded border border-blue-800">
-                  Gemini 3.8 Flash
+                  Gemini
                 </span>
               </h2>
               <p className="text-[11px] text-neutral-400">

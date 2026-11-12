@@ -10,15 +10,10 @@ import {
 import {
   Plus,
   Trash2,
-  ChevronDown,
-  ChevronUp,
-  FileSpreadsheet,
-  Settings,
-  Layers,
   FileCheck2,
-  AlertCircle,
 } from 'lucide-react';
 import { validateDatasheetFit } from '../utils/pageBudget';
+import { MAX_NOTES } from '../utils/normalizeDoc';
 
 interface EditorPanelProps {
   document: DatasheetDocument;
@@ -43,35 +38,35 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
     });
   };
 
-  // Add / Edit / Remove Rows in Sections
-  const handleAddRow = (column: 'left' | 'right', sectionIdx: number) => {
-    const targetSections = column === 'left' ? [...doc.leftSections] : [...doc.rightSections];
-    const sec = targetSections[sectionIdx];
-    const nextNum = sec.rows.length > 0 ? Number(sec.rows[sec.rows.length - 1].num) + 1 : 100;
-
-    sec.rows.push({
-      num: isNaN(nextNum) ? 'NEW' : nextNum,
-      label: 'Nuevo Parámetro',
-      value: '-',
-      unit: '',
+  // Immutable helper: replace one section without touching the original objects
+  const updateSection = (
+    column: 'left' | 'right',
+    sectionIdx: number,
+    updater: (sec: SectionBlock) => SectionBlock
+  ) => {
+    const key = column === 'left' ? 'leftSections' : 'rightSections';
+    onUpdateDocument({
+      ...doc,
+      [key]: doc[key].map((sec, i) => (i === sectionIdx ? updater(sec) : sec)),
     });
+  };
 
-    if (column === 'left') {
-      onUpdateDocument({ ...doc, leftSections: targetSections });
-    } else {
-      onUpdateDocument({ ...doc, rightSections: targetSections });
-    }
+  const handleAddRow = (column: 'left' | 'right', sectionIdx: number) => {
+    updateSection(column, sectionIdx, (sec) => {
+      const last = sec.rows.length > 0 ? Number(sec.rows[sec.rows.length - 1].num) : NaN;
+      const nextNum = Number.isNaN(last) ? (sec.rows.length > 0 ? 'NEW' : 100) : last + 1;
+      return {
+        ...sec,
+        rows: [...sec.rows, { num: nextNum, label: 'Nuevo Parámetro', value: '-', unit: '' }],
+      };
+    });
   };
 
   const handleRemoveRow = (column: 'left' | 'right', sectionIdx: number, rowIdx: number) => {
-    const targetSections = column === 'left' ? [...doc.leftSections] : [...doc.rightSections];
-    targetSections[sectionIdx].rows.splice(rowIdx, 1);
-
-    if (column === 'left') {
-      onUpdateDocument({ ...doc, leftSections: targetSections });
-    } else {
-      onUpdateDocument({ ...doc, rightSections: targetSections });
-    }
+    updateSection(column, sectionIdx, (sec) => ({
+      ...sec,
+      rows: sec.rows.filter((_, i) => i !== rowIdx),
+    }));
   };
 
   const handleRowChange = (
@@ -81,20 +76,12 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
     field: keyof DataRow,
     value: string
   ) => {
-    const targetSections = column === 'left' ? [...doc.leftSections] : [...doc.rightSections];
-    targetSections[sectionIdx].rows[rowIdx] = {
-      ...targetSections[sectionIdx].rows[rowIdx],
-      [field]: value,
-    };
-
-    if (column === 'left') {
-      onUpdateDocument({ ...doc, leftSections: targetSections });
-    } else {
-      onUpdateDocument({ ...doc, rightSections: targetSections });
-    }
+    updateSection(column, sectionIdx, (sec) => ({
+      ...sec,
+      rows: sec.rows.map((r, i) => (i === rowIdx ? { ...r, [field]: value } : r)),
+    }));
   };
 
-  // Scenarios
   const handleScenarioChange = (
     column: 'left' | 'right',
     sectionIdx: number,
@@ -102,40 +89,29 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
     field: keyof ScenarioItem,
     value: string
   ) => {
-    const targetSections = column === 'left' ? [...doc.leftSections] : [...doc.rightSections];
-    if (targetSections[sectionIdx].scenarios) {
-      targetSections[sectionIdx].scenarios![scenIdx] = {
-        ...targetSections[sectionIdx].scenarios![scenIdx],
-        [field]: value,
-      };
-
-      if (column === 'left') {
-        onUpdateDocument({ ...doc, leftSections: targetSections });
-      } else {
-        onUpdateDocument({ ...doc, rightSections: targetSections });
-      }
-    }
+    updateSection(column, sectionIdx, (sec) => ({
+      ...sec,
+      scenarios: sec.scenarios?.map((sc, i) => (i === scenIdx ? { ...sc, [field]: value } : sc)),
+    }));
   };
 
-  // Notes
+  // Notes (the printed sheet has a fixed block of MAX_NOTES rows)
   const handleAddNote = () => {
-    const nextNum = doc.notes.length > 0 ? Number(doc.notes[doc.notes.length - 1].num) + 1 : 900;
-    onUpdateDocument({
-      ...doc,
-      notes: [...doc.notes, { num: isNaN(nextNum) ? '90' + doc.notes.length : nextNum, text: '' }],
-    });
+    if (doc.notes.length >= MAX_NOTES) return;
+    const last = doc.notes.length > 0 ? Number(doc.notes[doc.notes.length - 1].num) : NaN;
+    const nextNum = Number.isNaN(last) ? 900 + doc.notes.length : last + 1;
+    onUpdateDocument({ ...doc, notes: [...doc.notes, { num: nextNum, text: '' }] });
   };
 
   const handleRemoveNote = (idx: number) => {
-    const updated = [...doc.notes];
-    updated.splice(idx, 1);
-    onUpdateDocument({ ...doc, notes: updated });
+    onUpdateDocument({ ...doc, notes: doc.notes.filter((_, i) => i !== idx) });
   };
 
   const handleNoteChange = (idx: number, text: string) => {
-    const updated = [...doc.notes];
-    updated[idx].text = text;
-    onUpdateDocument({ ...doc, notes: updated });
+    onUpdateDocument({
+      ...doc,
+      notes: doc.notes.map((n, i) => (i === idx ? { ...n, text } : n)),
+    });
   };
 
   // Signatures
@@ -393,16 +369,12 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                     <input
                       type="text"
                       value={sec.name}
-                      onChange={(e) => {
-                        const targetSections =
-                          activeTab === 'left' ? [...doc.leftSections] : [...doc.rightSections];
-                        targetSections[sIdx].name = e.target.value;
-                        if (activeTab === 'left') {
-                          onUpdateDocument({ ...doc, leftSections: targetSections });
-                        } else {
-                          onUpdateDocument({ ...doc, rightSections: targetSections });
-                        }
-                      }}
+                      onChange={(e) =>
+                        updateSection(activeTab as 'left' | 'right', sIdx, (sec) => ({
+                          ...sec,
+                          name: e.target.value,
+                        }))
+                      }
                       className="bg-transparent font-bold text-white text-xs border-b border-neutral-700 focus:border-blue-500 focus:outline-none px-1"
                     />
                   </div>
@@ -541,11 +513,13 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase text-neutral-400 tracking-wider">
-                  Notas de Ingeniería ({doc.notes.length})
+                  Notas de Ingeniería ({doc.notes.length}/{MAX_NOTES})
                 </h3>
                 <button
                   onClick={handleAddNote}
-                  className="flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300"
+                  disabled={doc.notes.length >= MAX_NOTES}
+                  title={doc.notes.length >= MAX_NOTES ? 'La hoja tiene espacio para 5 notas' : undefined}
+                  className="flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-3 h-3" />
                   <span>Agregar Nota</span>

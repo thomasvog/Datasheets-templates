@@ -6,23 +6,31 @@ import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import { templates } from './src/data/templates.js';
 import { validateDatasheetFit } from './src/utils/pageBudget.js';
+import { normalizeDatasheet } from './src/utils/normalizeDoc.js';
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const isProd = process.env.NODE_ENV === 'production';
+const isProd = process.env.NODE_ENV === 'production' || process.argv.includes('--prod');
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-// Initialize Gemini client server-side
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || '',
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    },
-  },
-});
+// Model is configurable: set GEMINI_MODEL in .env if the default is not available for your key.
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+
+// Lazy client: only created when a key exists, so the server starts cleanly without one.
+let aiClient: GoogleGenAI | null = null;
+function getAiClient(): GoogleGenAI | null {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') return null;
+  if (!aiClient) {
+    aiClient = new GoogleGenAI({
+      apiKey,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+    });
+  }
+  return aiClient;
+}
 
 async function startServer() {
   const app = express();
@@ -54,7 +62,9 @@ async function startServer() {
 
   // GET /api/templates/:id - get specific template
   app.get('/api/templates/:id', (req: Request, res: Response) => {
-    const template = templates[req.params.id];
+    const template = Object.prototype.hasOwnProperty.call(templates, req.params.id)
+      ? templates[req.params.id]
+      : undefined;
     if (!template) {
       return res.status(404).json({ success: false, error: 'Template not found' });
     }
@@ -64,9 +74,13 @@ async function startServer() {
   // POST /api/datasheet/validate - validate single page constraint
   app.post('/api/datasheet/validate', (req: Request, res: Response) => {
     try {
-      const doc = req.body;
-      if (!doc || !doc.leftSections || !doc.rightSections) {
-        return res.status(400).json({ success: false, error: 'Invalid datasheet document structure' });
+      let doc;
+      try {
+        doc = normalizeDatasheet(req.body);
+      } catch (e: unknown) {
+        return res
+          .status(400)
+          .json({ success: false, error: e instanceof Error ? e.message : 'Invalid datasheet document structure' });
       }
       const validation = validateDatasheetFit(doc);
       return res.json({ success: true, validation });
@@ -84,6 +98,14 @@ async function startServer() {
       return res.status(400).json({ success: false, error: 'Prompt is required' });
     }
 
+    const ai = getAiClient();
+    if (!ai) {
+      return res.status(503).json({
+        success: false,
+        error: 'GEMINI_API_KEY no está configurada en el servidor. Definila en .env (ver .env.example) y reiniciá.',
+      });
+    }
+
     try {
       const systemInstruction = `You are a Senior Instrumentation & Process Control Engineer specialized in ISA-20 / ISA-TR20.00.01 specification datasheets for industrial instrumentation and valves (control valves, ball valves, butterfly valves, coriolis flowmeters, magnetic flowmeters, vortex meters, pressure transmitters, temperature transmitters).
 
@@ -96,9 +118,9 @@ Follow strict industrial engineering conventions:
 - Respond ONLY with valid JSON matching the DatasheetDocument structure without markdown fences or extraneous text.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: GEMINI_MODEL,
         contents: `Create or update the industrial datasheet according to this specification:
-User prompt: "${prompt}"
+User prompt: ${JSON.stringify(prompt)}
 Instrument Category: ${category || 'valve'}
 Reference Document to base upon: ${JSON.stringify(currentDoc || templates['ball-valve'])}
 
@@ -119,10 +141,14 @@ Output strictly valid JSON with keys:
         },
       });
 
-      const responseText = response.text || '{}';
-      const parsed = JSON.parse(responseText);
+      // Tolerate accidental markdown fences, then validate/normalize the structure
+      const responseText = (response.text || '{}')
+        .trim()
+        .replace(/^```(?:json)?\s*/i, '')
+        .replace(/\s*```$/, '');
+      const datasheet = normalizeDatasheet(JSON.parse(responseText));
 
-      return res.json({ success: true, datasheet: parsed });
+      return res.json({ success: true, datasheet });
     } catch (err: unknown) {
       console.error('Error generating AI specs:', err);
       const msg = err instanceof Error ? err.message : String(err);

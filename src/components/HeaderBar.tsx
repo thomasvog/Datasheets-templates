@@ -1,21 +1,19 @@
 import React, { useRef } from 'react';
 import {
-  FileText,
   Download,
   Printer,
   Sparkles,
-  Sliders,
   ZoomIn,
   ZoomOut,
   Upload,
-  Layers,
   FileCheck2,
   AlertTriangle,
   Edit3,
 } from 'lucide-react';
-import { DatasheetDocument, InstrumentCategory, PageDensity } from '../types/datasheet';
+import { DatasheetDocument, PageDensity } from '../types/datasheet';
 import { validateDatasheetFit } from '../utils/pageBudget';
 import { templates } from '../data/templates';
+import { normalizeDatasheet } from '../utils/normalizeDoc';
 
 interface HeaderBarProps {
   currentDoc: DatasheetDocument;
@@ -50,6 +48,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const validation = validateDatasheetFit(currentDoc);
+  const isKnownTemplate = Object.prototype.hasOwnProperty.call(templates, currentDoc.id);
 
   const handleDensityChange = (density: PageDensity) => {
     onUpdateDocument({
@@ -76,17 +75,16 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
     reader.onload = (event) => {
       try {
         const json = JSON.parse(event.target?.result as string);
-        if (json.header && json.leftSections && json.rightSections) {
-          onUpdateDocument(json);
-        } else {
-          alert('El archivo JSON no tiene la estructura requerida de Datasheet ISA-20.');
-        }
+        onUpdateDocument(normalizeDatasheet(json));
       } catch (err) {
-        alert('Error al leer el archivo JSON: ' + String(err));
+        alert(
+          'No se pudo importar el JSON: ' + (err instanceof Error ? err.message : String(err))
+        );
       }
     };
+    reader.onerror = () => alert('No se pudo leer el archivo.');
     reader.readAsText(file);
-    // Reset file input
+    // Reset so the same file can be selected again
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -109,7 +107,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               </span>
             </div>
             <div className="text-[10px] text-neutral-400">
-              PDF Estricto 1 Página · Backend + Frontend Separados
+              PDF estricto de 1 página A4
             </div>
           </div>
         </div>
@@ -122,6 +120,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             onChange={(e) => onSelectTemplate(e.target.value)}
             className="bg-neutral-800 border border-neutral-700 text-neutral-200 text-xs rounded px-2.5 py-1.5 focus:border-blue-500 focus:outline-none cursor-pointer font-medium"
           >
+            {!isKnownTemplate && (
+              <option value={currentDoc.id}>Personalizado - {currentDoc.header.tag}</option>
+            )}
             <optgroup label="Válvulas Industriales">
               <option value="ball-valve">Válvula de Bola On-Off (ESD) - HS-1200</option>
               <option value="control-valve">Válvula de Control Globo - FCV-2041</option>
@@ -162,7 +163,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           <button
             onClick={onOpenAiAssistant}
             className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-semibold px-3 py-1.5 rounded transition-all shadow-sm active:scale-95"
-            title="Generar o ajustar especificaciones con IA (Gemini 3.8 Flash)"
+            title="Generar o ajustar especificaciones con IA (Gemini)"
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Asistente IA</span>
@@ -186,7 +187,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             title="Generar PDF A4 de 1 página exacta"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>{isGeneratingPdf ? 'Generando...' : 'Descargar PDF (Vector)'}</span>
+            <span>{isGeneratingPdf ? 'Generando...' : 'Descargar PDF'}</span>
           </button>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { DatasheetDocument } from './types/datasheet';
 import { templates } from './data/templates';
 import { HeaderBar } from './components/HeaderBar';
@@ -6,25 +6,32 @@ import { DatasheetPreview } from './components/DatasheetPreview';
 import { EditorPanel } from './components/EditorPanel';
 import { AiAssistantModal } from './components/AiAssistantModal';
 import { exportDatasheetToPdf, printDatasheet } from './utils/pdfGenerator';
-import { CheckCircle2, AlertTriangle, FileText, Download } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Download } from 'lucide-react';
 
 export default function App() {
   // Start with the Ball Valve template matching the user's reference HS-1200
-  const [currentDoc, setCurrentDoc] = useState<DatasheetDocument>(templates['ball-valve']);
+  const [currentDoc, setCurrentDoc] = useState<DatasheetDocument>(() =>
+    JSON.parse(JSON.stringify(templates['ball-valve']))
+  );
   const [activeTab, setActiveTab] = useState<'editor' | 'preview' | 'split'>('split');
   const [scale, setScale] = useState<number>(0.92);
   const [inlineEdit, setInlineEdit] = useState<boolean>(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState<boolean>(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [sheetOverflow, setSheetOverflow] = useState<boolean>(false);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wasMobile = useRef<boolean | null>(null);
 
   // Set initial scale based on window width
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
-      if (width < 768) {
+      const isMobile = width < 768;
+      if (isMobile) {
         setScale(0.55);
-        setActiveTab('editor'); // on mobile, show editor by default
+        // Only switch to the editor when ENTERING mobile, not on every resize
+        if (wasMobile.current !== true) setActiveTab('editor');
       } else if (width < 1200) {
         setScale(0.75);
       } else if (width < 1600) {
@@ -34,15 +41,28 @@ export default function App() {
       }
     };
 
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const handleResizeTracked = () => {
+      handleResize();
+      wasMobile.current = window.innerWidth < 768;
+    };
+    handleResizeTracked();
+    window.addEventListener('resize', handleResizeTracked);
+    return () => window.removeEventListener('resize', handleResizeTracked);
   }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToastMessage(null), 3500);
   };
+
+  useEffect(() => () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+  }, []);
+
+  const handleFitChange = useCallback((overflowing: boolean) => {
+    setSheetOverflow((prev) => (prev === overflowing ? prev : overflowing));
+  }, []);
 
   const handleSelectTemplate = (templateId: string) => {
     const t = templates[templateId];
@@ -56,8 +76,12 @@ export default function App() {
     setIsGeneratingPdf(true);
     try {
       const fileName = `${currentDoc.header.tag || 'Datasheet'}_ISA20.pdf`;
-      await exportDatasheetToPdf(currentDoc, fileName);
-      showToast(`¡PDF vectorial descargado! Texto 100% copiable y seleccionable.`);
+      await exportDatasheetToPdf('datasheet-a4-canvas', fileName);
+      showToast(
+        sheetOverflow
+          ? `PDF descargado: ${fileName} (⚠ parte del contenido quedó recortado)`
+          : `¡PDF descargado con éxito! (1 página A4: ${fileName})`
+      );
     } catch (err: unknown) {
       console.error(err);
       alert('Error al generar el PDF: ' + (err instanceof Error ? err.message : String(err)));
@@ -125,23 +149,47 @@ export default function App() {
                   className="flex items-center gap-1 bg-emerald-600/90 hover:bg-emerald-600 text-white px-2.5 py-0.5 rounded text-[11px] font-semibold"
                 >
                   <Download className="w-3 h-3" />
-                  <span>PDF Vector (Copiable)</span>
+                  <span>PDF 1 Pág</span>
                 </button>
               </div>
             </div>
 
+            {sheetOverflow && (
+              <div className="no-print w-full max-w-[196mm] mb-3 flex items-center gap-2 bg-amber-950/70 border border-amber-700 text-amber-300 rounded px-3 py-1.5 text-[11px] font-semibold">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                <span>
+                  El contenido supera la altura de la hoja y se recortará en el PDF. Quita filas o usa
+                  densidad Ultra.
+                </span>
+              </div>
+            )}
+
             {/* A4 Sheet Container */}
-            <div className="relative pb-16 flex justify-center">
+            <div className="relative pb-16 w-full">
               <DatasheetPreview
                 document={currentDoc}
                 onUpdateDocument={setCurrentDoc}
                 scale={scale}
                 inlineEdit={inlineEdit}
+                onFitChange={handleFitChange}
               />
             </div>
           </div>
         )}
       </main>
+
+      {/* In editor-only view the sheet is not visible, but PDF export / print still need it */}
+      {activeTab === 'editor' && (
+        <div className="offscreen-sheet" aria-hidden="true">
+          <DatasheetPreview
+            document={currentDoc}
+            onUpdateDocument={setCurrentDoc}
+            scale={1}
+            inlineEdit={false}
+            onFitChange={handleFitChange}
+          />
+        </div>
+      )}
 
       {/* Floating Toast Notification */}
       {toastMessage && (

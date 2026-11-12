@@ -1,5 +1,8 @@
 import { DatasheetDocument, ValidationResult } from '../types/datasheet';
 
+// Real rendered row pitch in mm per density (calibrated against the DOM, incl. dividers)
+const MM_PER_ROW = { 'ultra-compact': 3.9, compact: 4.6, standard: 5.6 } as const;
+
 /**
  * Validates whether the datasheet strictly fits onto a single A4 page.
  * A4 Height = 297mm
@@ -36,20 +39,13 @@ export function validateDatasheetFit(doc: DatasheetDocument): ValidationResult {
 
   const maxColumnRows = Math.max(leftRowUnits, rightRowUnits);
 
-  // Notes units
-  const notesCount = doc.notes.filter(n => n.text.trim().length > 0).length;
-  const notesHeightMm = Math.max(16, notesCount * 4.2);
-
-  // Height multiplier depending on density
-  let mmPerRow = 4.8;
-  if (doc.density === 'ultra-compact') mmPerRow = 4.1;
-  else if (doc.density === 'compact') mmPerRow = 4.5;
-  else mmPerRow = 5.2;
-
-  const headerHeightMm = 38;
-  const approvalsHeightMm = doc.approvals && doc.approvals.length > 0 ? 18 : 0;
+  // Notes block is fixed (5 rows = 78px ~ 20.6mm), footer 26px ~ 6.9mm, header ~ 32mm
+  const notesHeightMm = 20.6;
+  const mmPerRow = MM_PER_ROW[doc.density] ?? MM_PER_ROW.compact;
+  const headerHeightMm = 32;
+  const approvalsHeightMm = doc.approvals && doc.approvals.length > 0 ? 6.9 : 0;
   const columnsHeightMm = maxColumnRows * mmPerRow;
-  const totalEstimatedHeightMm = 14 + headerHeightMm + columnsHeightMm + notesHeightMm + approvalsHeightMm;
+  const totalEstimatedHeightMm = 13 + headerHeightMm + columnsHeightMm + notesHeightMm + approvalsHeightMm;
   const maxPageHeightMm = 297; // A4 standard
 
   const percentUtilized = Math.round((totalEstimatedHeightMm / maxPageHeightMm) * 100);
