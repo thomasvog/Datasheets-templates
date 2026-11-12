@@ -355,11 +355,11 @@ const RenderSection: React.FC<RenderSectionProps> = ({
   return (
     <div
       className="flex w-full min-w-0 flex-grow-0"
-      style={{ borderBottom: '1px solid #737373' }}
+      style={{ borderBottom: '1.5px solid #737373' }}
     >
       {/* Vertical Section Label on left edge */}
       <div className="w-[18px] bg-neutral-100 border-r border-neutral-500 flex items-center justify-center p-0.5 select-none shrink-0">
-        <span className="writing-mode-vertical text-[6.5pt] font-normal tracking-widest text-neutral-900 text-center uppercase">
+        <span className="writing-mode-vertical text-[6.5pt] font-bold tracking-widest text-neutral-900 text-center uppercase">
           {section.name}
         </span>
       </div>
@@ -370,7 +370,7 @@ const RenderSection: React.FC<RenderSectionProps> = ({
         {section.isScenarioTable && section.scenarios && section.scenarios.length > 0 && (
           <div className="w-full flex flex-col">
             {/* Scenario Header */}
-            <div className="flex px-[3px] bg-neutral-100 border-b border-neutral-300 text-[5.6pt] font-normal uppercase text-neutral-800 whitespace-nowrap overflow-hidden">
+            <div className="flex px-[3px] bg-neutral-100 border-b border-neutral-300 text-[5.6pt] font-bold uppercase text-neutral-800 whitespace-nowrap overflow-hidden">
               <div className="w-[20px] text-center shrink-0">#</div>
               <div className="flex-1 min-w-0 px-1.5 border-l border-neutral-200">CONDICIÓN DE PROCESO</div>
               <div className="w-[28px] text-center border-l border-neutral-200 shrink-0" />
