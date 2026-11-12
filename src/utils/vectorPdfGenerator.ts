@@ -347,10 +347,11 @@ export function exportVectorPdf(
     sections.forEach((sec, sIdx) => {
       const isLastSection = sIdx === sections.length - 1;
       const extraRows = isLastSection ? spareNeeded : 0;
-      const secRowsCount = sec.rows.length + (sec.isScenarioTable && sec.scenarios && sec.scenarios.length > 0 ? sec.scenarios.length + 1 : 0) + extraRows;
-      
+      const hasScenarios = Boolean(sec.isScenarioTable && sec.scenarios && sec.scenarios.length > 0);
+      const secRowsCount = sec.rows.length + (hasScenarios ? (sec.scenarios?.length ?? 0) + 1 : 0) + extraRows;
       const secH = secRowsCount * rowH;
       const secEndY = isLastSection ? notesY : (currentY + secH);
+      const tableRowsY = currentY + (hasScenarios ? rowH : 0);
 
       // Section vertical label badge
       pdf.setFillColor(grayFill[0], grayFill[1], grayFill[2]);
@@ -362,23 +363,25 @@ export function exportVectorPdf(
       // Rotated text for badge (centered with zero offset)
       drawVerticalBadgeText(pdf, sec.name, colStartX, currentY, badgeW, secEndY - currentY, 6.2, black);
 
-      // Continuous vertical lines from section top to bottom:
-      vLine(xLabel, currentY, secEndY);
-      vLine(xUnit, currentY, secEndY);
-      vLine(xVal, currentY, secEndY);
+      // Start below the scenario header; its background is painted separately.
+      vLine(xLabel, tableRowsY, secEndY);
+      vLine(xUnit, tableRowsY, secEndY);
+      vLine(xVal, tableRowsY, secEndY);
 
       let rowY = currentY;
 
       // Render Scenario Table if present
       if (sec.isScenarioTable && sec.scenarios && sec.scenarios.length > 0) {
         const scenHeaderH = rowH; // Exactly rowH for 100% mathematical grid alignment
-        const scenRowsEndY = currentY + scenHeaderH + sec.scenarios.length * rowH;
 
         // Scenario Header background
         pdf.setFillColor(grayFill[0], grayFill[1], grayFill[2]);
         pdf.rect(colTableX, rowY, tableW, scenHeaderH, 'F');
         vLine(xLabel, rowY, rowY + scenHeaderH);
         vLine(xSUnit, rowY, rowY + scenHeaderH);
+        vLine(xSMin, rowY, rowY + scenHeaderH);
+        vLine(xSNorm, rowY, rowY + scenHeaderH);
+        vLine(xSMax, rowY, rowY + scenHeaderH);
         hLine(colTableX, colTableX + tableW, rowY + scenHeaderH);
 
         pdf.setFont('helvetica', 'bold');
@@ -391,11 +394,6 @@ export function exportVectorPdf(
         pdf.text('MÍN', xSMin + wSMin / 2, rowY + textYOffset, { align: 'center' });
         pdf.text('NORM', xSNorm + wSNorm / 2, rowY + textYOffset, { align: 'center' });
         pdf.text('MÁX', xSMax + wSMax / 2, rowY + textYOffset, { align: 'center' });
-
-        // Continuous vertical lines for scenario table sub-columns
-        vLine(xSMin, currentY, scenRowsEndY);
-        vLine(xSNorm, currentY, scenRowsEndY);
-        vLine(xSMax, currentY, scenRowsEndY);
 
         rowY += scenHeaderH;
 
