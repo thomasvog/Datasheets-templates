@@ -81,11 +81,12 @@ export function exportVectorPdf(
 
   // Colors
   const black: RGBColor = [0, 0, 0];
-  const borderColor: RGBColor = [0, 0, 0];
+  const borderColor: RGBColor = [128, 128, 128];
   const gridColor: RGBColor = [175, 175, 175];
-  const borderWidth = 0.12;
-  const majorBorderWidth = 0.42;
-  const sectionBorderWidth = 0.24;
+  const borderWidth = 0.05;
+  const majorBorderWidth = 0.18;
+  const sectionBorderWidth = 0.15;
+  const outerBorderWidth = 0.68;
   const grayFill: RGBColor = [242, 244, 246];
   const grayText: RGBColor = [90, 90, 90];
 
@@ -122,8 +123,8 @@ export function exportVectorPdf(
   };
 
   // --- 1. OUTER BORDER ---
-  pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
-  pdf.setLineWidth(majorBorderWidth);
+  pdf.setDrawColor(black[0], black[1], black[2]);
+  pdf.setLineWidth(outerBorderWidth);
   pdf.rect(marginX, marginY, sheetW, sheetH);
 
   // --- 2. HEADER BLOCK (Y: 6.5 -> 41.5) ---
