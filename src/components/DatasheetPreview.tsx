@@ -247,7 +247,7 @@ export const DatasheetPreview: React.FC<DatasheetPreviewProps> = ({
           </div>
 
           {/* RIGHT COLUMN */}
-          <div className="w-1/2 min-w-0 flex flex-col justify-start divide-y divide-black">
+          <div className="w-1/2 min-w-0 flex flex-col justify-start divide-y divide-neutral-500">
             {doc.rightSections.map((sec, secIdx) => (
               <RenderSection
                 key={sec.id || `right-${secIdx}`}
