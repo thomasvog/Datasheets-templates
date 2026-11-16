@@ -128,7 +128,7 @@ export const DatasheetPreview: React.FC<DatasheetPreviewProps> = ({
           height: '284mm',
           maxWidth: '196mm',
           maxHeight: '284mm',
-          border: '0.68mm solid #000000',
+          border: '1.5px solid #000000',
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
@@ -140,11 +140,11 @@ export const DatasheetPreview: React.FC<DatasheetPreviewProps> = ({
         }}
       >
         {/* 1. TOP HEADER TABLE (Height: ~37mm) */}
-        <div className="w-full border-b border-neutral-500 text-[7pt] leading-tight shrink-0 bg-white">
+        <div className="w-full border-b-[1.5px] border-black text-[7pt] leading-tight shrink-0 bg-white">
           {/* Row 1: Logo/Company, Title, Tag & Sheet */}
-          <div className="flex border-b border-neutral-500">
+          <div className="flex border-b border-black">
             {/* Company / Logo */}
-            <div className="w-[30%] p-1.5 border-r border-neutral-500 flex flex-col justify-center items-center text-center bg-neutral-50/60">
+            <div className="w-[30%] p-1.5 border-r border-black flex flex-col justify-center items-center text-center bg-neutral-50/60">
               <span className="font-extrabold text-[8.5pt] uppercase text-black">
                 {doc.header.companyName}
               </span>
@@ -154,7 +154,7 @@ export const DatasheetPreview: React.FC<DatasheetPreviewProps> = ({
             </div>
 
             {/* Document Title */}
-            <div className="w-[45%] p-1.5 border-r border-neutral-500 flex flex-col justify-center items-center text-center">
+            <div className="w-[45%] p-1.5 border-r border-black flex flex-col justify-center items-center text-center">
               <span className="text-[6.2pt] uppercase font-bold text-neutral-700">
                 {doc.header.standard}
               </span>
@@ -188,7 +188,7 @@ export const DatasheetPreview: React.FC<DatasheetPreviewProps> = ({
           </div>
 
           {/* Row 2: Project, Location, Function, Date & Status */}
-          <div className="grid grid-cols-12 text-[6.5pt] border-b border-neutral-500 divide-x divide-neutral-500 bg-neutral-50/30">
+          <div className="grid grid-cols-12 text-[6.5pt] border-b border-black divide-x divide-black bg-neutral-50/30">
             <div className="col-span-4 px-1.5 py-1">
               <span className="text-[5.5pt] uppercase text-neutral-600 font-bold block">PROYECTO:</span>
               <span className="font-bold text-black text-[6.7pt]">{doc.header.project}</span>
@@ -208,7 +208,7 @@ export const DatasheetPreview: React.FC<DatasheetPreviewProps> = ({
           </div>
 
           {/* Row 3: P&ID, Line No, PO No, Location */}
-          <div className="grid grid-cols-12 text-[6.2pt] divide-x divide-neutral-500 bg-white">
+          <div className="grid grid-cols-12 text-[6.2pt] divide-x divide-black bg-white">
             <div className="col-span-3 px-1.5 py-0.5">
               <span className="text-neutral-600 font-semibold mr-1">P&amp;ID REF:</span>
               <span className="font-bold text-black">{doc.header.pidRef}</span>
@@ -229,9 +229,9 @@ export const DatasheetPreview: React.FC<DatasheetPreviewProps> = ({
         </div>
 
         {/* 2. MAIN BODY: 2 SYMMETRICAL COLUMNS (Fills all available height down to Notes) */}
-        <div ref={columnsRef} className="flex flex-1 min-h-0 w-full border-b-[0.5px] border-neutral-500 overflow-hidden">
+        <div ref={columnsRef} className="flex flex-1 min-h-0 w-full border-b-[1.5px] border-black overflow-hidden">
           {/* LEFT COLUMN */}
-          <div className="w-1/2 min-w-0 border-r-[0.5px] border-neutral-500 flex flex-col justify-start">
+          <div className="w-1/2 min-w-0 border-r-[1.5px] border-black flex flex-col justify-start divide-y divide-black">
             {doc.leftSections.map((sec, secIdx) => (
               <RenderSection
                 key={sec.id || `left-${secIdx}`}
@@ -247,7 +247,7 @@ export const DatasheetPreview: React.FC<DatasheetPreviewProps> = ({
           </div>
 
           {/* RIGHT COLUMN */}
-          <div className="w-1/2 min-w-0 flex flex-col justify-start">
+          <div className="w-1/2 min-w-0 flex flex-col justify-start divide-y divide-black">
             {doc.rightSections.map((sec, secIdx) => (
               <RenderSection
                 key={sec.id || `right-${secIdx}`}
@@ -265,11 +265,11 @@ export const DatasheetPreview: React.FC<DatasheetPreviewProps> = ({
 
         {/* 3. BOTTOM SECTION: EXACTLY 5 FIXED ROWS OF NOTES */}
         <div
-          className="w-full flex border-b-[0.5px] border-neutral-500 shrink-0 bg-white"
+          className="w-full flex border-b-[1.5px] border-black shrink-0 bg-white"
           style={{ height: '78px', maxHeight: '78px', minHeight: '78px' }}
         >
           {/* Vertical NOTAS label on left edge */}
-          <div className="w-[18px] bg-neutral-100 border-r border-neutral-500 flex items-center justify-center p-0.5 select-none shrink-0">
+          <div className="w-[18px] bg-neutral-100 border-r border-black flex items-center justify-center p-0.5 select-none shrink-0">
             <span className="writing-mode-vertical text-[6.5pt] font-black tracking-widest text-neutral-900 uppercase">
               NOTAS
             </span>
@@ -309,7 +309,7 @@ export const DatasheetPreview: React.FC<DatasheetPreviewProps> = ({
 
         {/* 4. FOOTER: APPROVAL SIGNATURES BLOCK (Height: ~26px) */}
         {doc.approvals && doc.approvals.length > 0 && (
-          <div className="w-full grid grid-cols-4 divide-x divide-neutral-500 text-[5.8pt] leading-tight bg-neutral-50 shrink-0 h-[26px]">
+          <div className="w-full grid grid-cols-4 divide-x divide-black text-[5.8pt] leading-tight bg-neutral-50 shrink-0 h-[26px]">
             {doc.approvals.map((appr, aIdx) => (
               <div key={aIdx} className="px-1.5 py-0.5 flex flex-col justify-between">
                 <div className="flex justify-between items-center text-neutral-600">
@@ -353,37 +353,35 @@ const RenderSection: React.FC<RenderSectionProps> = ({
   onUpdateScenario,
 }) => {
   return (
-    <div
-      className="flex w-full min-w-0 flex-grow-0"
-      style={{ borderBottom: '1.5px solid #737373' }}
-    >
+    <div className="flex w-full min-w-0 flex-grow-0">
       {/* Vertical Section Label on left edge */}
-      <div
-        className="w-[18px] bg-neutral-100 border-r border-neutral-500 flex items-center justify-center p-0.5 select-none shrink-0"
-        style={{ borderBottom: '1.5px solid #737373' }}
-      >
-        <span className="writing-mode-vertical text-[6.5pt] font-bold tracking-widest text-neutral-900 text-center uppercase">
+      <div className="w-[18px] bg-neutral-100 border-r border-black flex items-center justify-center p-0.5 select-none shrink-0">
+        <span className="writing-mode-vertical text-[6.5pt] font-black tracking-widest text-neutral-900 text-center uppercase">
           {section.name}
         </span>
       </div>
 
       {/* Rows Container */}
       <div className="flex-1 min-w-0 flex flex-col divide-y divide-neutral-200">
-        {/* Optional Scenario Table (Min / Norm / Max) */}
+        {/* Optional Scenario Table (Min / Norm / Max) - same column grid as the regular rows */}
         {section.isScenarioTable && section.scenarios && section.scenarios.length > 0 && (
-          <div className="w-full flex flex-col">
-            {/* Scenario Header */}
+          <div className="w-full flex flex-col divide-y divide-neutral-200">
+            {/* Header: same structure as a regular row, unit column has NO title */}
             <div
-              className="flex items-center px-[3px] bg-neutral-100 border-b border-neutral-300 text-[5.6pt] font-bold uppercase text-neutral-800 whitespace-nowrap overflow-hidden"
-              style={{ height: density.minH }}
+              className="flex items-center px-[3px] bg-neutral-100 text-[5.6pt] font-black uppercase text-neutral-800"
+              style={{ minHeight: density.minH }}
             >
-              <div className="w-[20px] text-center shrink-0">#</div>
-              <div className="flex-1 min-w-0 px-1.5 border-l border-neutral-200">CONDICIÓN DE PROCESO</div>
-              <div className="w-[28px] text-center border-l border-neutral-200 shrink-0" />
-              <div className="w-[48%] shrink-0 flex border-l border-neutral-200">
-                <div className="flex-1 min-w-0 text-center">MÍN</div>
-                <div className="flex-1 min-w-0 text-center border-l border-neutral-200 bg-neutral-200/60 font-normal">NORM</div>
-                <div className="flex-1 min-w-0 text-center border-l border-neutral-200">MÁX</div>
+              <span className="w-[20px] text-right pr-1 shrink-0">#</span>
+              <span className="flex-1 min-w-0 self-stretch flex items-center px-1.5 border-l border-neutral-200">
+                CONDICIÓN DE PROCESO
+              </span>
+              <span className="w-[28px] shrink-0 self-stretch border-l border-neutral-200" />
+              <div className="w-[48%] shrink-0 min-w-0 self-stretch flex border-l border-neutral-200">
+                <span className="flex-1 flex items-center justify-center">MÍN</span>
+                <span className="flex-1 flex items-center justify-center border-l border-neutral-200 bg-neutral-200/60">
+                  NORM
+                </span>
+                <span className="flex-1 flex items-center justify-center border-l border-neutral-200">MÁX</span>
               </div>
             </div>
 
@@ -391,60 +389,46 @@ const RenderSection: React.FC<RenderSectionProps> = ({
             {section.scenarios.map((scen, sIdx) => (
               <div
                 key={sIdx}
-                className="flex items-center px-[3px] text-[6.6pt] border-b border-neutral-100 last:border-b-0 whitespace-nowrap"
-                style={{
-                  height: density.minH,
-                  minHeight: density.minH,
-                  paddingTop: density.padY,
-                  paddingBottom: density.padY,
-                }}
+                className="flex items-center px-[3px] hover:bg-neutral-50"
+                style={{ minHeight: density.minH, paddingTop: density.padY, paddingBottom: density.padY }}
               >
-                <div className="w-[20px] text-right pr-1 text-neutral-500 font-mono text-[5.8pt] shrink-0 font-normal">
+                <span className="w-[20px] text-right pr-1 text-neutral-500 font-mono text-[5.8pt] shrink-0 font-medium">
                   {scen.num}
-                </div>
-                <div title={scen.label} className="flex-1 min-w-0 self-stretch flex items-center px-1.5 font-normal text-neutral-900 truncate border-l border-neutral-200 text-[6.7pt] leading-[1.15]">
+                </span>
+                <span className="flex-1 min-w-0 self-stretch flex items-center px-1.5 font-semibold text-neutral-800 break-words border-l border-neutral-200 text-[6.7pt] leading-[1.15]">
                   {scen.label}
-                </div>
-                <div className="w-[28px] shrink-0 text-center text-[5.8pt] text-neutral-600 font-mono font-normal border-l border-neutral-200 whitespace-nowrap overflow-hidden">
+                </span>
+                <span className="w-[28px] self-stretch flex items-center justify-center text-neutral-600 font-mono text-[5.8pt] border-l border-neutral-200 shrink-0">
                   {scen.unit}
-                </div>
-                <div className="w-[48%] shrink-0 self-stretch flex border-l border-neutral-200">
-                  <div className="flex-1 min-w-0 flex items-center justify-center whitespace-nowrap overflow-hidden">
-                    {inlineEdit ? (
-                      <input
-                        type="text"
-                        value={scen.min}
-                        onChange={(e) => onUpdateScenario(sIdx, 'min', e.target.value)}
-                        className="w-full text-center bg-transparent text-[6pt] focus:bg-blue-50 focus:outline-none"
-                      />
-                    ) : (
-                      <span className="text-neutral-800 font-mono font-normal">{scen.min}</span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0 flex items-center justify-center border-l border-neutral-200 font-normal bg-neutral-50 whitespace-nowrap overflow-hidden">
-                    {inlineEdit ? (
-                      <input
-                        type="text"
-                        value={scen.norm}
-                        onChange={(e) => onUpdateScenario(sIdx, 'norm', e.target.value)}
-                        className="w-full text-center bg-transparent font-normal text-[6.6pt] focus:bg-blue-50 focus:outline-none"
-                      />
-                    ) : (
-                      <span className="text-black font-mono font-normal">{scen.norm}</span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0 flex items-center justify-center border-l border-neutral-200 whitespace-nowrap overflow-hidden">
-                    {inlineEdit ? (
-                      <input
-                        type="text"
-                        value={scen.max}
-                        onChange={(e) => onUpdateScenario(sIdx, 'max', e.target.value)}
-                        className="w-full text-center bg-transparent text-[6pt] focus:bg-blue-50 focus:outline-none"
-                      />
-                    ) : (
-                      <span className="text-neutral-800 font-mono font-normal">{scen.max}</span>
-                    )}
-                  </div>
+                </span>
+                <div className="w-[48%] shrink-0 min-w-0 self-stretch flex border-l border-neutral-200">
+                  {(['min', 'norm', 'max'] as const).map((f, i) => (
+                    <div
+                      key={f}
+                      className={`flex-1 min-w-0 flex items-center justify-center ${
+                        i > 0 ? 'border-l border-neutral-200' : ''
+                      } ${f === 'norm' ? 'bg-neutral-50' : ''}`}
+                    >
+                      {inlineEdit ? (
+                        <input
+                          type="text"
+                          value={scen[f]}
+                          onChange={(e) => onUpdateScenario(sIdx, f, e.target.value)}
+                          className={`w-full text-center bg-transparent text-[6.8pt] focus:bg-blue-50 focus:outline-none ${
+                            f === 'norm' ? 'font-bold' : ''
+                          }`}
+                        />
+                      ) : (
+                        <span
+                          className={`font-mono text-[6.8pt] ${
+                            f === 'norm' ? 'font-bold text-black' : 'font-medium text-neutral-800'
+                          }`}
+                        >
+                          {scen[f]}
+                        </span>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
@@ -455,37 +439,32 @@ const RenderSection: React.FC<RenderSectionProps> = ({
         {section.rows.map((row, rIdx) => (
           <div
             key={rIdx}
-            className="flex items-center px-[3px] hover:bg-neutral-50 whitespace-nowrap"
-            style={{
-              height: density.minH,
-              minHeight: density.minH,
-              paddingTop: density.padY,
-              paddingBottom: density.padY,
-            }}
+            className="flex items-center px-[3px] hover:bg-neutral-50"
+            style={{ minHeight: density.minH, paddingTop: density.padY, paddingBottom: density.padY }}
           >
             {/* Row Number */}
-            <span className="w-[20px] text-right pr-1 text-neutral-500 font-mono text-[5.8pt] shrink-0 font-normal whitespace-nowrap overflow-hidden">
+            <span className="w-[20px] text-right pr-1 text-neutral-500 font-mono text-[5.8pt] shrink-0 font-medium">
               {row.num}
             </span>
 
             {/* Parameter Label */}
-            <span title={row.label} className="flex-1 min-w-0 self-stretch flex items-center px-1.5 font-normal text-neutral-800 truncate border-l border-neutral-200 text-[6.7pt] leading-[1.15]">
+            <span className="flex-1 min-w-0 self-stretch flex items-center px-1.5 font-semibold text-neutral-800 break-words border-l border-neutral-200 text-[6.7pt] leading-[1.15]">
               {row.label}
             </span>
 
             {/* Unit Column (always consistent) */}
-            <span className="w-[28px] text-center text-neutral-600 font-mono font-normal text-[5.8pt] border-l border-neutral-200 shrink-0 whitespace-nowrap overflow-hidden">
+            <span className="w-[28px] self-stretch flex items-center justify-center text-neutral-600 font-mono text-[5.8pt] border-l border-neutral-200 shrink-0">
               {row.unit || ''}
             </span>
 
             {/* Value Column */}
-            <div title={row.value} className="w-[48%] shrink-0 min-w-0 self-stretch flex items-center px-1.5 text-left font-normal text-black border-l border-neutral-200 truncate text-[7.2pt] leading-[1.15]">
+            <div className="w-[48%] shrink-0 min-w-0 self-stretch flex items-center px-1.5 text-left font-bold text-black border-l border-neutral-200 break-words text-[7.2pt] leading-[1.15]">
               {inlineEdit ? (
                 <input
                   type="text"
                   value={row.value}
                   onChange={(e) => onUpdateRow(rIdx, e.target.value)}
-                  className="w-full min-w-0 bg-transparent font-normal focus:bg-blue-50 focus:outline-none px-0.5"
+                  className="w-full min-w-0 bg-transparent font-bold focus:bg-blue-50 focus:outline-none px-0.5"
                 />
               ) : (
                 <span>{row.value}</span>
