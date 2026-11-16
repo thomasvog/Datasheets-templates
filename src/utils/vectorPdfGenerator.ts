@@ -1,609 +1,462 @@
-import { jsPDF } from 'jspdf';
-import { DatasheetDocument, SectionBlock, ScenarioItem } from '../types/datasheet';
+import jsPDF from 'jspdf';
+import { DatasheetDocument, SectionBlock } from '../types/datasheet';
 
-type RGBColor = readonly [number, number, number];
+type RGB = readonly [number, number, number];
+type Seg = readonly [number, number, number, number];
+type Weight = 'thin' | 'mid' | 'thick';
 
-/**
- * Renders vertical badge text perfectly centered horizontally and vertically
- * within a vertical badge rectangle without relying on jsPDF's align option
- * (which miscalculates unrotated axes when rotated).
- */
-function drawVerticalBadgeText(
-  pdf: jsPDF,
-  text: string,
-  badgeX: number,
-  badgeY: number,
-  badgeW: number,
-  badgeH: number,
-  fontSizePt = 6.2,
-  color: RGBColor = [0, 0, 0]
-): void {
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(fontSizePt);
-  pdf.setTextColor(color[0], color[1], color[2]);
+const PT_MM = 25.4 / 72; // 1 pt en mm
+const CAP = 0.718; // altura de mayúscula Helvetica
 
-  let txt = text.toUpperCase();
-  let textW = pdf.getTextWidth(txt);
-  const maxAllowedW = Math.max(8, badgeH - 3.5);
-  if (textW > maxAllowedW) {
-    while (txt.length > 2 && pdf.getTextWidth(txt + '…') > maxAllowedW) {
-      txt = txt.slice(0, -1);
-    }
-    txt = txt + '…';
-    textW = pdf.getTextWidth(txt);
-  }
+// Jerarquía de bordes: se dibujan en este orden, así el más grueso queda siempre al frente
+const W_THIN = 0.12; // grilla de filas y celdas
+const W_MID = 0.25; // separadores de sección y subdivisiones de cabecera
+const W_THICK = 0.55; // borde exterior y límites de apartados mayores
 
-  // Cap-height in mm for Helvetica Bold at fontSizePt (ratio ~0.718)
-  const capHeightMm = (fontSizePt * 0.718) * (25.4 / 72);
+const BLACK: RGB = [0, 0, 0];
+const GRAY_TEXT: RGB = [90, 90, 90];
+const GRAY_FILL: RGB = [242, 244, 246];
 
-  // X coordinate: centers the glyphs within badgeW
-  // Basis vector for angle 90 ascenders points LEFT, baseline is at tx
-  const tx = badgeX + (badgeW + capHeightMm) / 2;
+/** jsPDF con fuentes estándar solo codifica Latin-1: normalizamos lo demás. */
+function clean(s: unknown): string {
+  const t = (s == null ? '' : String(s))
+    .replace(/[\u2013\u2014\u2212]/g, '-')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/\u2026/g, '...')
+    .replace(/\u2265/g, '>=')
+    .replace(/\u2264/g, '<=')
+    .replace(/[\u03A9\u2126]/g, 'ohm')
+    .replace(/\u00A0/g, ' ');
+  return t.replace(/[^\u0000-\u00FF]/g, '?');
+}
 
-  // Y coordinate: text reads bottom-to-top, starts at ty and ends at (ty - textW)
-  const ty = badgeY + badgeH / 2 + textW / 2;
+function truncateToWidth(pdf: jsPDF, text: string, maxW: number): string {
+  if (pdf.getTextWidth(text) <= maxW) return text;
+  let t = text;
+  while (t.length > 1 && pdf.getTextWidth(t + '...') > maxW) t = t.slice(0, -1);
+  return t.trimEnd() + '...';
+}
 
-  pdf.text(txt, tx, ty, { angle: 90 });
+interface CellOpts {
+  size: number;
+  color: RGB;
+  bold?: boolean;
+  align?: 'left' | 'center';
 }
 
 /**
- * Generates an authentic, 100% vector, text-searchable, copy-pasteable PDF
- * strictly guaranteed to fit on exactly 1 single A4 page.
- * Uses native PDF vector instructions (Tj/TJ operators, line & rect drawing).
+ * Dibuja texto dentro de una celda (top, h), centrado verticalmente.
+ * Si no entra: reduce la fuente (hasta 78%), luego parte en 2 líneas si hay alto, y como último recurso trunca.
  */
-export function exportVectorPdf(
-  docData: DatasheetDocument,
-  fileName?: string
+function drawCell(
+  pdf: jsPDF,
+  raw: unknown,
+  x: number,
+  top: number,
+  h: number,
+  maxW: number,
+  o: CellOpts
 ): void {
-  const pdf = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-    compress: true,
+  const text = clean(raw);
+  if (!text) return;
+  pdf.setFont('helvetica', o.bold ? 'bold' : 'normal');
+
+  let size = o.size;
+  const minSize = o.size * 0.78;
+  pdf.setFontSize(size);
+  while (pdf.getTextWidth(text) > maxW && size > minSize) {
+    size = Math.max(minSize, size - 0.2);
+    pdf.setFontSize(size);
+  }
+
+  let lines = [text];
+  if (pdf.getTextWidth(text) > maxW) {
+    const lineH = size * PT_MM * 1.18;
+    const wrapped = pdf.splitTextToSize(text, maxW) as string[];
+    if (wrapped.length >= 2 && lineH * 2 <= h - 0.4) {
+      lines = wrapped.slice(0, 2);
+      if (wrapped.length > 2) lines[1] = wrapped.slice(1).join(' ');
+    }
+    lines = lines.map((l) => truncateToWidth(pdf, l, maxW));
+  }
+
+  const cap = size * PT_MM * CAP;
+  const lineH = size * PT_MM * 1.18;
+  const block = cap + (lines.length - 1) * lineH;
+  let y = top + h / 2 - block / 2 + cap;
+
+  pdf.setTextColor(o.color[0], o.color[1], o.color[2]);
+  for (const l of lines) {
+    if (o.align === 'center') pdf.text(l, x, y, { align: 'center' });
+    else pdf.text(l, x, y);
+    y += lineH;
+  }
+}
+
+/** Texto vertical (lee de abajo hacia arriba) centrado en un badge. */
+function drawVerticalBadgeText(
+  pdf: jsPDF,
+  raw: string,
+  bx: number,
+  by: number,
+  bw: number,
+  bh: number,
+  baseSize = 6.2
+): void {
+  let txt = clean(raw).toUpperCase();
+  pdf.setFont('helvetica', 'bold');
+  const maxW = Math.max(8, bh - 3);
+  let size = baseSize;
+  pdf.setFontSize(size);
+  while (pdf.getTextWidth(txt) > maxW && size > baseSize * 0.75) {
+    size -= 0.2;
+    pdf.setFontSize(size);
+  }
+  txt = truncateToWidth(pdf, txt, maxW);
+  const textW = pdf.getTextWidth(txt);
+  const cap = size * PT_MM * CAP;
+  pdf.setTextColor(0, 0, 0);
+  pdf.text(txt, bx + (bw + cap) / 2, by + bh / 2 + textW / 2, { angle: 90 });
+}
+
+/**
+ * PDF 100% vectorial, con texto seleccionable/copiable, en exactamente 1 página A4.
+ * Los bordes se acumulan por grosor y se dibujan al final (fino -> medio -> grueso),
+ * por eso los gruesos siempre quedan por encima de los finos.
+ */
+export function exportVectorPdf(docData: DatasheetDocument, fileName?: string): void {
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+  pdf.setProperties({
+    title: `${docData.header.tag} - ${docData.header.documentTitle}`,
+    subject: 'ISA-TR20.00.01 / ISA-20 Datasheet',
   });
 
-  // A4 Geometry: 210mm x 297mm
+  // Geometría A4 (210 x 297)
   const marginX = 7.0;
   const marginY = 6.5;
   const sheetW = 196.0;
   const sheetH = 284.0;
-  const sheetBottomY = marginY + sheetH; // 290.5mm
+  const left = marginX;
+  const right = marginX + sheetW;
+  const sheetBottomY = marginY + sheetH;
 
   const headerH = 35.0;
-  const notesH = 22.0; // Exactly 5 rows x 4.4mm
+  const notesH = 22.0;
   const approvalsH = 22.5;
-  const columnsH = sheetH - headerH - notesH - approvalsH; // 204.5mm
+  const columnsH = sheetH - headerH - notesH - approvalsH;
 
-  const topY = marginY; // 6.5mm
-  const columnsY = topY + headerH; // 41.5mm
-  const notesY = columnsY + columnsH; // 246.0mm
-  const approvalsY = notesY + notesH; // 268.0mm
+  const topY = marginY;
+  const columnsY = topY + headerH;
+  const notesY = columnsY + columnsH;
+  const approvalsY = notesY + notesH;
 
-  // Colors
-  const black: RGBColor = [0, 0, 0];
-  const borderColor: RGBColor = [128, 128, 128];
-  const gridColor: RGBColor = [175, 175, 175];
-  const borderWidth = 0.05;
-  const majorBorderWidth = 0.18;
-  const sectionBorderWidth = 0.15;
-  const outerBorderWidth = 0.68;
-  const grayFill: RGBColor = [242, 244, 246];
-  const grayText: RGBColor = [90, 90, 90];
+  // ---- Cola de líneas (se dibujan al final, por grosor) ----
+  const queue: Record<Weight, Seg[]> = { thin: [], mid: [], thick: [] };
+  const H = (w: Weight, x1: number, x2: number, y: number) => queue[w].push([x1, y, x2, y]);
+  const V = (w: Weight, x: number, y1: number, y2: number) => queue[w].push([x, y1, x, y2]);
 
-  // Helper: Truncate string cleanly
-  const truncate = (str: string | undefined | null, maxChars: number): string => {
-    if (!str) return '';
-    return str.length > maxChars ? str.substring(0, maxChars - 1) + '…' : str;
+  const fillRect = (x: number, y: number, w: number, h: number, c: RGB) => {
+    pdf.setFillColor(c[0], c[1], c[2]);
+    pdf.rect(x, y, w, h, 'F');
   };
 
-  // Helper: Draw horizontal line
-  const hLine = (x1: number, x2: number, y: number) => {
-    pdf.setDrawColor(gridColor[0], gridColor[1], gridColor[2]);
-    pdf.setLineWidth(borderWidth);
-    pdf.line(x1, y, x2, y);
-  };
-
-  // Helper: Draw vertical line
-  const vLine = (x: number, y1: number, y2: number) => {
-    pdf.setDrawColor(gridColor[0], gridColor[1], gridColor[2]);
-    pdf.setLineWidth(borderWidth);
-    pdf.line(x, y1, x, y2);
-  };
-
-  const majorHLine = (x1: number, x2: number, y: number) => {
-    pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
-    pdf.setLineWidth(majorBorderWidth);
-    pdf.line(x1, y, x2, y);
-  };
-
-  const majorVLine = (x: number, y1: number, y2: number) => {
-    pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
-    pdf.setLineWidth(majorBorderWidth);
-    pdf.line(x, y1, x, y2);
-  };
-
-  // --- 1. OUTER BORDER ---
-  pdf.setDrawColor(black[0], black[1], black[2]);
-  pdf.setLineWidth(outerBorderWidth);
-  pdf.rect(marginX, marginY, sheetW, sheetH);
-
-  // --- 2. HEADER BLOCK (Y: 6.5 -> 41.5) ---
+  // ================= 1. CABECERA =================
   const hRow1H = 16.0;
   const hRow2H = 10.0;
   const hRow3H = 9.0;
+  const r2Y = topY + hRow1H;
+  const r3Y = r2Y + hRow2H;
 
-  // Major horizontal lines in header
-  majorHLine(marginX, marginX + sheetW, topY + hRow1H);
-  majorHLine(marginX, marginX + sheetW, topY + hRow1H + hRow2H);
-  majorHLine(marginX, marginX + sheetW, columnsY);
+  H('mid', left, right, r2Y);
+  H('mid', left, right, r3Y);
+  H('thick', left, right, columnsY);
 
-  // Row 1: Company (30%), Title (45%), Tag (25%)
-  const wComp = sheetW * 0.30; // 58.8mm
-  const wTitle = sheetW * 0.45; // 88.2mm
-  const wTag = sheetW * 0.25; // 49.0mm
-  const xTitle = marginX + wComp;
+  const wComp = sheetW * 0.3;
+  const wTitle = sheetW * 0.45;
+  const wTag = sheetW * 0.25;
+  const xTitle = left + wComp;
   const xTag = xTitle + wTitle;
+  V('mid', xTitle, topY, r2Y);
+  V('mid', xTag, topY, r2Y);
 
-  vLine(xTitle, topY, topY + hRow1H);
-  vLine(xTag, topY, topY + hRow1H);
-
-  // Company Box
-  pdf.setFillColor(grayFill[0], grayFill[1], grayFill[2]);
-  pdf.rect(marginX + 0.2, topY + 0.2, wComp - 0.4, hRow1H - 0.4, 'F');
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(8.5);
-  pdf.setTextColor(black[0], black[1], black[2]);
-  pdf.text(truncate(docData.header.companyName, 32), marginX + wComp / 2, topY + 6.8, {
-    align: 'center',
-    maxWidth: wComp - 4,
+  // Empresa
+  fillRect(left, topY, wComp, hRow1H, GRAY_FILL);
+  drawCell(pdf, docData.header.companyName, left + wComp / 2, topY + 1.5, 8, wComp - 4, {
+    size: 8.5, bold: true, color: BLACK, align: 'center',
   });
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(5.5);
-  pdf.setTextColor(grayText[0], grayText[1], grayText[2]);
-  pdf.text('Instrumentation & Control Engineering', marginX + wComp / 2, topY + 11.5, {
-    align: 'center',
+  drawCell(pdf, 'Instrumentation & Control Engineering', left + wComp / 2, topY + 9.5, 4.5, wComp - 4, {
+    size: 5.5, color: GRAY_TEXT, align: 'center',
   });
 
-  // Title Box
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(6.2);
-  pdf.setTextColor(grayText[0], grayText[1], grayText[2]);
-  pdf.text(docData.header.standard || 'ISA-TR20.00.01 / ISA-20', xTitle + wTitle / 2, topY + 4.5, {
-    align: 'center',
+  // Título
+  drawCell(pdf, docData.header.standard || 'ISA-TR20.00.01 / ISA-20', xTitle + wTitle / 2, topY + 1, 4.2, wTitle - 4, {
+    size: 6.2, bold: true, color: GRAY_TEXT, align: 'center',
   });
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(9.5);
-  pdf.setTextColor(black[0], black[1], black[2]);
-  pdf.text(truncate(docData.header.documentTitle, 36), xTitle + wTitle / 2, topY + 9.2, {
-    align: 'center',
+  drawCell(pdf, docData.header.documentTitle, xTitle + wTitle / 2, topY + 5.2, 5.4, wTitle - 4, {
+    size: 9.5, bold: true, color: BLACK, align: 'center',
   });
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(6.8);
-  pdf.setTextColor(black[0], black[1], black[2]);
-  pdf.text(truncate(docData.header.equipmentType, 40), xTitle + wTitle / 2, topY + 13.5, {
-    align: 'center',
+  drawCell(pdf, docData.header.equipmentType, xTitle + wTitle / 2, topY + 10.6, 4.6, wTitle - 4, {
+    size: 6.8, bold: true, color: BLACK, align: 'center',
   });
 
-  // Tag Box
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(5.5);
-  pdf.setTextColor(grayText[0], grayText[1], grayText[2]);
-  pdf.text('TAG NO.', xTag + wTag / 2, topY + 3.8, { align: 'center' });
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(9.5);
-  pdf.setTextColor(black[0], black[1], black[2]);
-  pdf.text(truncate(docData.header.tag, 18), xTag + wTag / 2, topY + 8.8, {
-    align: 'center',
+  // Tag / Rev / Hoja
+  drawCell(pdf, 'TAG NO.', xTag + wTag / 2, topY + 0.8, 3.4, wTag - 4, {
+    size: 5.5, bold: true, color: GRAY_TEXT, align: 'center',
   });
-  hLine(xTag, xTag + wTag, topY + 10.8);
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(6.2);
-  pdf.text(`REV: ${docData.header.revision || '0'}`, xTag + 3, topY + 14.5);
-  pdf.text(`HOJA: ${docData.header.sheet || '1 / 1'}`, xTag + wTag - 3, topY + 14.5, {
-    align: 'right',
+  drawCell(pdf, docData.header.tag, xTag + wTag / 2, topY + 4.2, 6.4, wTag - 4, {
+    size: 9.5, bold: true, color: BLACK, align: 'center',
+  });
+  H('thin', xTag, right, topY + 10.8);
+  drawCell(pdf, `REV: ${docData.header.revision || '0'}`, xTag + 2, topY + 10.8, 5.2, wTag / 2 - 3, {
+    size: 6.2, bold: true, color: BLACK,
+  });
+  drawCell(pdf, `HOJA: ${docData.header.sheet || '1 / 1'}`, xTag + wTag / 2 + 2, topY + 10.8, 5.2, wTag / 2 - 3, {
+    size: 6.2, bold: true, color: BLACK,
   });
 
-  // Row 2: Project, Service, Date, Status
-  const r2Y = topY + hRow1H; // 22.5mm
-  const colR2_1 = sheetW * 0.333; // ~65.27mm
-  const colR2_2 = sheetW * 0.333; // ~65.27mm
-  const colR2_3 = sheetW * 0.167; // ~32.73mm
-  const colR2_4 = sheetW - colR2_1 - colR2_2 - colR2_3;
+  // Fila 2
+  const c1 = sheetW * 0.333;
+  const c2 = sheetW * 0.333;
+  const c3 = sheetW * 0.167;
+  const c4 = sheetW - c1 - c2 - c3;
+  const x2 = left + c1;
+  const x3 = x2 + c2;
+  const x4 = x3 + c3;
+  V('thin', x2, r2Y, r3Y);
+  V('thin', x3, r2Y, r3Y);
+  V('thin', x4, r2Y, r3Y);
 
-  vLine(marginX + colR2_1, r2Y, r2Y + hRow2H);
-  vLine(marginX + colR2_1 + colR2_2, r2Y, r2Y + hRow2H);
-  vLine(marginX + colR2_1 + colR2_2 + colR2_3, r2Y, r2Y + hRow2H);
+  const r2Cell = (x: number, w: number, label: string, value: string, center: boolean, vSize: number) => {
+    const cx = center ? x + w / 2 : x + 2;
+    const al = center ? 'center' : 'left';
+    drawCell(pdf, label, cx, r2Y + 0.6, 3.4, w - 4, { size: 5.4, bold: true, color: GRAY_TEXT, align: al });
+    drawCell(pdf, value, cx, r2Y + 4, 5.4, w - 4, { size: vSize, bold: true, color: BLACK, align: al });
+  };
+  r2Cell(left, c1, 'PROYECTO:', docData.header.project, false, 6.6);
+  r2Cell(x2, c2, 'SERVICIO / FUNCIÓN:', docData.header.equipmentFunction, false, 6.6);
+  r2Cell(x3, c3, 'FECHA:', docData.header.date, true, 6.5);
+  r2Cell(x4, c4, 'ESTADO:', docData.header.status, true, 5.9);
 
-  // Project
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(5.4);
-  pdf.setTextColor(grayText[0], grayText[1], grayText[2]);
-  pdf.text('PROYECTO:', marginX + 2, r2Y + 3.6);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(6.6);
-  pdf.setTextColor(black[0], black[1], black[2]);
-  pdf.text(truncate(docData.header.project, 44), marginX + 2, r2Y + 7.4);
-
-  // Service
-  const xR2_2 = marginX + colR2_1;
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(5.4);
-  pdf.setTextColor(grayText[0], grayText[1], grayText[2]);
-  pdf.text('SERVICIO / FUNCIÓN:', xR2_2 + 2, r2Y + 3.6);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(6.6);
-  pdf.setTextColor(black[0], black[1], black[2]);
-  pdf.text(truncate(docData.header.equipmentFunction, 44), xR2_2 + 2, r2Y + 7.4);
-
-  // Date
-  const xR2_3 = xR2_2 + colR2_2;
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(5.4);
-  pdf.setTextColor(grayText[0], grayText[1], grayText[2]);
-  pdf.text('FECHA:', xR2_3 + colR2_3 / 2, r2Y + 3.6, { align: 'center' });
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(6.5);
-  pdf.setTextColor(black[0], black[1], black[2]);
-  pdf.text(truncate(docData.header.date, 16), xR2_3 + colR2_3 / 2, r2Y + 7.4, { align: 'center' });
-
-  // Status
-  const xR2_4 = xR2_3 + colR2_3;
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(5.4);
-  pdf.setTextColor(grayText[0], grayText[1], grayText[2]);
-  pdf.text('ESTADO:', xR2_4 + colR2_4 / 2, r2Y + 3.6, { align: 'center' });
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(5.9);
-  pdf.setTextColor(black[0], black[1], black[2]);
-  pdf.text(truncate(docData.header.status, 24), xR2_4 + colR2_4 / 2, r2Y + 7.4, { align: 'center' });
-
-  // Row 3: P&ID, Line No, Location, PO No (4 equal cols = 49mm each)
-  const r3Y = r2Y + hRow2H; // 32.5mm
-  const colR3W = sheetW / 4; // 49.0mm
-  vLine(marginX + colR3W, r3Y, r3Y + hRow3H);
-  vLine(marginX + colR3W * 2, r3Y, r3Y + hRow3H);
-  vLine(marginX + colR3W * 3, r3Y, r3Y + hRow3H);
-
-  const drawHeaderField = (x: number, label: string, val: string) => {
+  // Fila 3
+  const c3w = sheetW / 4;
+  V('thin', left + c3w, r3Y, columnsY);
+  V('thin', left + c3w * 2, r3Y, columnsY);
+  V('thin', left + c3w * 3, r3Y, columnsY);
+  const r3Field = (x: number, label: string, val: string) => {
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(5.6);
-    pdf.setTextColor(grayText[0], grayText[1], grayText[2]);
-    pdf.text(label, x + 2, r3Y + 5.5);
-    const labelW = pdf.getTextWidth(label) + 1.2;
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(6.2);
-    pdf.setTextColor(black[0], black[1], black[2]);
-    pdf.text(truncate(val, 28), x + 2 + labelW, r3Y + 5.5);
+    const lw = pdf.getTextWidth(clean(label)) + 1.2;
+    drawCell(pdf, label, x + 2, r3Y, hRow3H, lw, { size: 5.6, color: GRAY_TEXT });
+    drawCell(pdf, val, x + 2 + lw, r3Y, hRow3H, c3w - 4 - lw, { size: 6.2, bold: true, color: BLACK });
   };
+  r3Field(left, 'P&ID REF:', docData.header.pidRef);
+  r3Field(left + c3w, 'LÍNEA:', docData.header.lineNo);
+  r3Field(left + c3w * 2, 'UBICACIÓN:', docData.header.location);
+  r3Field(left + c3w * 3, 'O. COMPRA:', docData.header.poNo);
 
-  drawHeaderField(marginX, 'P&ID REF:', docData.header.pidRef);
-  drawHeaderField(marginX + colR3W, 'LÍNEA:', docData.header.lineNo);
-  drawHeaderField(marginX + colR3W * 2, 'UBICACIÓN:', docData.header.location);
-  drawHeaderField(marginX + colR3W * 3, 'O. COMPRA:', docData.header.poNo);
+  // ================= 2. COLUMNAS =================
+  const colW = sheetW / 2;
+  const xColRight = left + colW;
 
-  // --- 3. TWO SYMMETRICAL COLUMNS (Y: 41.5 -> 246.0) ---
-  const colW = sheetW / 2; // 98.0mm
-  const xColLeft = marginX;
-  const xColRight = marginX + colW;
+  V('thick', xColRight, columnsY, notesY);
+  H('thick', left, right, notesY);
 
-  // Unbroken center vertical divider between columns
-  majorVLine(xColRight, columnsY, notesY);
-  // Unbroken horizontal divider above notes
-  majorHLine(marginX, marginX + sheetW, notesY);
+  const countRows = (sections: SectionBlock[]) =>
+    sections.reduce((n, s) => {
+      n += s.rows.length;
+      if (s.isScenarioTable && s.scenarios && s.scenarios.length > 0) n += s.scenarios.length + 1;
+      return n;
+    }, 0);
 
-  // Helper to count rows
-  const countColumnRows = (sections: SectionBlock[]) => {
-    let count = 0;
-    sections.forEach((sec) => {
-      count += sec.rows.length;
-      if (sec.isScenarioTable && sec.scenarios && sec.scenarios.length > 0) {
-        count += sec.scenarios.length + 1; // +1 for scenario header
-      }
-    });
-    return count;
-  };
-
-  const leftCount = countColumnRows(docData.leftSections);
-  const rightCount = countColumnRows(docData.rightSections);
-  // Grid height: symmetrical row count so both columns align across center
+  const leftCount = countRows(docData.leftSections);
+  const rightCount = countRows(docData.rightSections);
   const totalGridRows = Math.max(leftCount, rightCount, 28);
   const rowH = columnsH / totalGridRows;
 
-  // Function to render a column of sections
-  const renderColumn = (sections: SectionBlock[], colStartX: number, spareNeeded: number) => {
+  const renderColumn = (sections: SectionBlock[], colX: number, spare: number) => {
     if (sections.length === 0) return;
 
-    const badgeW = 5.2; // Width of vertical section badge
-    const tableW = colW - badgeW; // 92.8mm
-    const colTableX = colStartX + badgeW;
+    const badgeW = 5.2;
+    const tableW = colW - badgeW;
+    const tx = colX + badgeW;
+    const xEnd = colX + colW;
 
-    // Column widths inside table:
-    // Col 1 (#): 6.0mm
-    // Col 2 (Label): 43.0mm
-    // Col 3 (Unit): 7.5mm
-    // Col 4 (Value): 36.3mm
+    // Mismas columnas para TODAS las secciones (incluida Conditions)
     const wNum = 6.0;
     const wLabel = 43.0;
     const wUnit = 7.5;
-    const wVal = tableW - wNum - wLabel - wUnit; // 36.3mm
+    const wVal = tableW - wNum - wLabel - wUnit;
+    const xNum = tx;
+    const xLabel = xNum + wNum;
+    const xUnit = xLabel + wLabel;
+    const xVal = xUnit + wUnit;
+    const wS = wVal / 3; // MÍN / NORM / MÁX reparten la columna de valor
+    const xS1 = xVal + wS;
+    const xS2 = xVal + wS * 2;
 
-    const xNum = colTableX;
-    const xLabel = xNum + wNum; // colTableX + 6.0
-    const xUnit = xLabel + wLabel; // colTableX + 49.0
-    const xVal = xUnit + wUnit; // colTableX + 56.5
-
-    // Scenario sub-columns inside right half (wUnit + wVal = 43.8mm):
-    const wSUnit = 7.5;
-    const wSMin = 12.1;
-    const wSNorm = 12.1;
-    const wSMax = 12.1;
-
-    const xSUnit = xLabel + wLabel; // same as xUnit
-    const xSMin = xSUnit + wSUnit;
-    const xSNorm = xSMin + wSMin;
-    const xSMax = xSNorm + wSNorm;
-
-    let currentY = columnsY;
+    let y = columnsY;
 
     sections.forEach((sec, sIdx) => {
-      const isLastSection = sIdx === sections.length - 1;
-      const extraRows = isLastSection ? spareNeeded : 0;
-      const hasScenarios = Boolean(sec.isScenarioTable && sec.scenarios && sec.scenarios.length > 0);
-      const secRowsCount = sec.rows.length + (hasScenarios ? (sec.scenarios?.length ?? 0) + 1 : 0) + extraRows;
-      const secH = secRowsCount * rowH;
-      const secEndY = isLastSection ? notesY : (currentY + secH);
-      const tableRowsY = currentY + (hasScenarios ? rowH : 0);
+      const isLast = sIdx === sections.length - 1;
+      const hasScen = !!(sec.isScenarioTable && sec.scenarios && sec.scenarios.length > 0);
+      const scenRows = hasScen ? sec.scenarios!.length + 1 : 0;
+      const rowsCount = scenRows + sec.rows.length + (isLast ? spare : 0);
+      const secEnd = isLast ? notesY : y + rowsCount * rowH;
 
-      // Section vertical label badge
-      pdf.setFillColor(grayFill[0], grayFill[1], grayFill[2]);
-      pdf.rect(colStartX, currentY, badgeW, secEndY - currentY, 'F');
-      pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
-      pdf.setLineWidth(sectionBorderWidth);
-      pdf.line(colTableX, currentY, colTableX, secEndY);
+      // Badge vertical
+      fillRect(colX, y, badgeW, secEnd - y, GRAY_FILL);
+      drawVerticalBadgeText(pdf, sec.name, colX, y, badgeW, secEnd - y, 6.2);
+      V('mid', xNum, y, secEnd);
 
-      // Rotated text for badge (centered with zero offset)
-      drawVerticalBadgeText(pdf, sec.name, colStartX, currentY, badgeW, secEndY - currentY, 6.2, black);
+      // Separador de sección (medio) y divisiones de columnas (finas), continuas
+      if (!isLast) H('mid', colX, xEnd, secEnd);
+      V('thin', xLabel, y, secEnd);
+      V('thin', xUnit, y, secEnd);
+      V('thin', xVal, y, secEnd);
 
-      // Start below the scenario header; its background is painted separately.
-      vLine(xLabel, tableRowsY, secEndY);
-      vLine(xUnit, tableRowsY, secEndY);
-      vLine(xVal, tableRowsY, secEndY);
+      let rowY = y;
 
-      let rowY = currentY;
+      // ---- Tabla de escenarios (alineada con el resto: # | etiqueta | unidad | MÍN NORM MÁX) ----
+      if (hasScen) {
+        // Encabezado: la columna de unidad queda SIN encabezado
+        fillRect(tx, rowY, tableW, rowH, GRAY_FILL);
+        const hdr = (t: string, cx: number, w: number) =>
+          drawCell(pdf, t, cx, rowY, rowH, w - 1, { size: 5.3, bold: true, color: BLACK, align: 'center' });
+        hdr('#', xNum + wNum / 2, wNum);
+        drawCell(pdf, 'CONDICIÓN DE PROCESO', xLabel + 1.5, rowY, rowH, wLabel - 2.5, {
+          size: 5.3, bold: true, color: BLACK,
+        });
+        hdr('MÍN', xVal + wS / 2, wS);
+        hdr('NORM', xS1 + wS / 2, wS);
+        hdr('MÁX', xS2 + wS / 2, wS);
+        H('thin', tx, xEnd, rowY + rowH);
+        V('thin', xS1, y, y + scenRows * rowH);
+        V('thin', xS2, y, y + scenRows * rowH);
+        rowY += rowH;
 
-      // Render Scenario Table if present
-      if (sec.isScenarioTable && sec.scenarios && sec.scenarios.length > 0) {
-        const scenHeaderH = rowH; // Exactly rowH for 100% mathematical grid alignment
+        sec.scenarios!.forEach((sc) => {
+          fillRect(xS1, rowY, wS, rowH, [248, 248, 248]);
+          H('thin', tx, xEnd, rowY + rowH);
 
-        // Scenario Header background
-        pdf.setFillColor(grayFill[0], grayFill[1], grayFill[2]);
-        pdf.rect(colTableX, rowY, tableW, scenHeaderH, 'F');
-        vLine(xLabel, rowY, rowY + scenHeaderH);
-        vLine(xSUnit, rowY, rowY + scenHeaderH);
-        vLine(xSMin, rowY, rowY + scenHeaderH);
-        vLine(xSNorm, rowY, rowY + scenHeaderH);
-        vLine(xSMax, rowY, rowY + scenHeaderH);
-        hLine(colTableX, colTableX + tableW, rowY + scenHeaderH);
-
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(5.3);
-        pdf.setTextColor(black[0], black[1], black[2]);
-
-        const textYOffset = scenHeaderH * 0.68;
-        pdf.text('#', xNum + wNum / 2, rowY + textYOffset, { align: 'center' });
-        pdf.text('CONDICIÓN DE PROCESO', xLabel + 1.5, rowY + textYOffset);
-        pdf.text('MÍN', xSMin + wSMin / 2, rowY + textYOffset, { align: 'center' });
-        pdf.text('NORM', xSNorm + wSNorm / 2, rowY + textYOffset, { align: 'center' });
-        pdf.text('MÁX', xSMax + wSMax / 2, rowY + textYOffset, { align: 'center' });
-
-        rowY += scenHeaderH;
-
-        // Scenario Rows
-        sec.scenarios.forEach((scen, scenIdx) => {
-          // Subtle shading for NORM column
-          pdf.setFillColor(248, 248, 248);
-          pdf.rect(xSNorm, rowY, wSNorm, rowH, 'F');
-          vLine(xSNorm, rowY, rowY + rowH);
-          vLine(xSMax, rowY, rowY + rowH);
-          if (scenIdx < (sec.scenarios?.length ?? 0) - 1 || sec.rows.length > 0 || extraRows > 0) {
-            hLine(colTableX, colTableX + tableW, rowY + rowH);
-          }
-
-          const cellTextY = rowY + rowH * 0.68;
-
-          pdf.setFont('helvetica', 'normal');
-          pdf.setFontSize(5.6);
-          pdf.setTextColor(grayText[0], grayText[1], grayText[2]);
-          pdf.text(String(scen.num), xNum + wNum / 2, cellTextY, { align: 'center' });
-
-          pdf.setFont('helvetica', 'bold');
-          pdf.setFontSize(6.2);
-          pdf.setTextColor(black[0], black[1], black[2]);
-          pdf.text(truncate(scen.label, 28), xLabel + 1.5, cellTextY);
-
-          pdf.setFont('helvetica', 'normal');
-          pdf.setFontSize(5.5);
-          pdf.setTextColor(grayText[0], grayText[1], grayText[2]);
-          pdf.text(scen.unit || '', xSUnit + wSUnit / 2, cellTextY, { align: 'center' });
-
-          pdf.setTextColor(black[0], black[1], black[2]);
-          pdf.text(scen.min || '-', xSMin + wSMin / 2, cellTextY, { align: 'center' });
-
-          pdf.setFont('helvetica', 'bold');
-          pdf.text(scen.norm || '-', xSNorm + wSNorm / 2, cellTextY, { align: 'center' });
-
-          pdf.setFont('helvetica', 'normal');
-          pdf.text(scen.max || '-', xSMax + wSMax / 2, cellTextY, { align: 'center' });
-
+          drawCell(pdf, sc.num, xNum + wNum / 2, rowY, rowH, wNum - 1, {
+            size: 5.6, color: GRAY_TEXT, align: 'center',
+          });
+          drawCell(pdf, sc.label, xLabel + 1.5, rowY, rowH, wLabel - 2.5, { size: 6.4, bold: true, color: BLACK });
+          drawCell(pdf, sc.unit, xUnit + wUnit / 2, rowY, rowH, wUnit - 1, {
+            size: 5.5, color: GRAY_TEXT, align: 'center',
+          });
+          drawCell(pdf, sc.min || '-', xVal + wS / 2, rowY, rowH, wS - 1.2, { size: 6.2, color: BLACK, align: 'center' });
+          drawCell(pdf, sc.norm || '-', xS1 + wS / 2, rowY, rowH, wS - 1.2, {
+            size: 6.2, bold: true, color: BLACK, align: 'center',
+          });
+          drawCell(pdf, sc.max || '-', xS2 + wS / 2, rowY, rowH, wS - 1.2, { size: 6.2, color: BLACK, align: 'center' });
           rowY += rowH;
         });
       }
 
-      // Regular Property Rows
-      let lastRowNum = 0;
-      sec.rows.forEach((row, rowIdx) => {
-        if (rowIdx < sec.rows.length - 1 || extraRows > 0) {
-          hLine(colTableX, colTableX + tableW, rowY + rowH);
-        }
-
-        const cellTextY = rowY + rowH * 0.68;
-        const numVal = typeof row.num === 'number' ? row.num : parseInt(String(row.num), 10);
-        if (!isNaN(numVal) && numVal > lastRowNum) lastRowNum = numVal;
-
-        // Row #
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(5.6);
-        pdf.setTextColor(grayText[0], grayText[1], grayText[2]);
-        pdf.text(String(row.num), xNum + wNum / 2, cellTextY, { align: 'center' });
-
-        // Parameter Label
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(6.4);
-        pdf.setTextColor(black[0], black[1], black[2]);
-        pdf.text(truncate(row.label, 30), xLabel + 1.5, cellTextY);
-
-        // Unit
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(5.5);
-        pdf.setTextColor(grayText[0], grayText[1], grayText[2]);
-        pdf.text(row.unit || '', xUnit + wUnit / 2, cellTextY, { align: 'center' });
-
-        // Value
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(6.7);
-        pdf.setTextColor(black[0], black[1], black[2]);
-        pdf.text(truncate(row.value, 26), xVal + 1.5, cellTextY);
-
+      // ---- Filas normales ----
+      sec.rows.forEach((row) => {
+        H('thin', tx, xEnd, rowY + rowH);
+        drawCell(pdf, row.num, xNum + wNum / 2, rowY, rowH, wNum - 1, {
+          size: 5.6, color: GRAY_TEXT, align: 'center',
+        });
+        drawCell(pdf, row.label, xLabel + 1.5, rowY, rowH, wLabel - 2.5, { size: 6.4, bold: true, color: BLACK });
+        drawCell(pdf, row.unit || '', xUnit + wUnit / 2, rowY, rowH, wUnit - 1, {
+          size: 5.5, color: GRAY_TEXT, align: 'center',
+        });
+        drawCell(pdf, row.value, xVal + 1.5, rowY, rowH, wVal - 2.5, { size: 6.7, bold: true, color: BLACK });
         rowY += rowH;
       });
 
-      // Render Spare Rows in last section to maintain full grid closure
-      if (isLastSection && spareNeeded > 0) {
-        for (let sp = 0; sp < spareNeeded; sp++) {
-          const spNum = lastRowNum ? lastRowNum + 1 + sp : '';
-          if (sp < spareNeeded - 1) {
-            hLine(colTableX, colTableX + tableW, rowY + rowH);
-          }
-
-          if (spNum) {
-            pdf.setFont('helvetica', 'normal');
-            pdf.setFontSize(5.4);
-            pdf.setTextColor(170, 170, 170);
-            pdf.text(String(spNum), xNum + wNum / 2, rowY + rowH * 0.68, { align: 'center' });
-          }
-
+      // ---- Filas vacías para cerrar la grilla en la última sección ----
+      if (isLast) {
+        for (let i = 0; i < spare; i++) {
+          H('thin', tx, xEnd, rowY + rowH);
           rowY += rowH;
         }
       }
 
-      // Section boundary bottom line
-      if (!isLastSection) {
-        pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
-        pdf.setLineWidth(sectionBorderWidth);
-        pdf.line(colStartX, secEndY, colStartX + colW, secEndY);
-      }
-      currentY = secEndY;
+      y = secEnd;
     });
   };
 
-  // Render Left and Right Columns with spare padding so both columns perfectly hit notesY
-  const leftSpare = totalGridRows - leftCount;
-  const rightSpare = totalGridRows - rightCount;
-  renderColumn(docData.leftSections, xColLeft, leftSpare);
-  renderColumn(docData.rightSections, xColRight, rightSpare);
+  renderColumn(docData.leftSections, left, totalGridRows - leftCount);
+  renderColumn(docData.rightSections, xColRight, totalGridRows - rightCount);
 
-  // --- 4. NOTES TABLE: EXACTLY 5 FIXED ROWS (Y: 246.0 -> 268.0) ---
+  // ================= 3. NOTAS (5 filas fijas) =================
   const badgeNotesW = 5.2;
-  const noteRowH = notesH / 5; // Exactly 4.4mm per row
+  const noteRowH = notesH / 5;
+  const xNoteNum = left + badgeNotesW;
+  const wNoteNum = 8.5;
+  const xNoteText = xNoteNum + wNoteNum;
 
-  // Vertical NOTAS Badge
-  pdf.setFillColor(grayFill[0], grayFill[1], grayFill[2]);
-  pdf.rect(marginX, notesY, badgeNotesW, notesH, 'F');
-  pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
-  pdf.setLineWidth(sectionBorderWidth);
-  pdf.line(marginX + badgeNotesW, notesY, marginX + badgeNotesW, notesY + notesH);
-
-  // Exact vertical NOTAS text
-  drawVerticalBadgeText(pdf, 'NOTAS', marginX, notesY, badgeNotesW, notesH, 6.5, black);
-
-  // 5 Fixed Note Rows
-  const xNoteNum = marginX + badgeNotesW; // 12.2mm
-  const wNoteNum = 8.5; // 8.5mm
-  const xNoteText = xNoteNum + wNoteNum; // 20.7mm
-
-  // Continuous vertical line dividing number from note text
-  vLine(xNoteText, notesY, notesY + notesH);
-  majorHLine(marginX, marginX + sheetW, approvalsY);
+  fillRect(left, notesY, badgeNotesW, notesH, GRAY_FILL);
+  drawVerticalBadgeText(pdf, 'NOTAS', left, notesY, badgeNotesW, notesH, 6.5);
+  V('mid', xNoteNum, notesY, approvalsY);
+  V('thin', xNoteText, notesY, approvalsY);
+  H('thick', left, right, approvalsY);
 
   for (let i = 0; i < 5; i++) {
-    const rowTopY = notesY + i * noteRowH;
-    if (i > 0) {
-      hLine(xNoteNum, marginX + sheetW, rowTopY);
-    }
-
+    const rowTop = notesY + i * noteRowH;
+    if (i > 0) H('thin', xNoteNum, right, rowTop);
     const note = docData.notes[i];
-    const noteNum = note?.num ?? 900 + i;
-    const noteContent = note?.text ?? '';
-
-    // Number (900) centered vertically and horizontally
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(6.5);
-    pdf.setTextColor(black[0], black[1], black[2]);
-    pdf.text(`(${noteNum})`, xNoteNum + wNoteNum / 2, rowTopY + noteRowH * 0.68, { align: 'center' });
-
-    // Note Text
-    if (noteContent) {
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(6.4);
-      pdf.setTextColor(black[0], black[1], black[2]);
-      pdf.text(truncate(noteContent, 125), xNoteText + 2, rowTopY + noteRowH * 0.68);
+    drawCell(pdf, `(${note?.num ?? 900 + i})`, xNoteNum + wNoteNum / 2, rowTop, noteRowH, wNoteNum - 1, {
+      size: 6.5, bold: true, color: BLACK, align: 'center',
+    });
+    if (note?.text) {
+      drawCell(pdf, note.text, xNoteText + 2, rowTop, noteRowH, right - xNoteText - 3.5, { size: 6.4, color: BLACK });
     }
   }
 
-  // --- 5. APPROVALS FOOTER (Y: 268.0 -> 290.5) ---
-  const colApprW = sheetW / 4; // 49.0mm each
-  vLine(marginX + colApprW, approvalsY, sheetBottomY);
-  vLine(marginX + colApprW * 2, approvalsY, sheetBottomY);
-  vLine(marginX + colApprW * 3, approvalsY, sheetBottomY);
+  // ================= 4. APROBACIONES =================
+  const colApprW = sheetW / 4;
+  V('thin', left + colApprW, approvalsY, sheetBottomY);
+  V('thin', left + colApprW * 2, approvalsY, sheetBottomY);
+  V('thin', left + colApprW * 3, approvalsY, sheetBottomY);
 
-  const approvalsList = docData.approvals && docData.approvals.length > 0
-    ? docData.approvals
-    : [
-        { role: 'PREPARED BY', name: '', signatureDate: '' },
-        { role: 'CHECKED BY', name: '', signatureDate: '' },
-        { role: 'APPROVED BY', name: '', signatureDate: '' },
-        { role: 'CLIENT APPROVAL', name: '', signatureDate: '' },
-      ];
+  const approvals: { role: string; name: string; signatureDate: string; company?: string }[] =
+    docData.approvals && docData.approvals.length > 0
+      ? docData.approvals
+      : [
+          { role: 'PREPARED BY', name: '', signatureDate: '' },
+          { role: 'CHECKED BY', name: '', signatureDate: '' },
+          { role: 'APPROVED BY', name: '', signatureDate: '' },
+          { role: 'CLIENT APPROVAL', name: '', signatureDate: '' },
+        ];
 
-  approvalsList.slice(0, 4).forEach((appr, idx) => {
-    const boxX = marginX + idx * colApprW;
-    // Role & Date
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(5.6);
-    pdf.setTextColor(black[0], black[1], black[2]);
-    pdf.text(appr.role, boxX + 2, approvalsY + 4.5);
-
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(5.6);
-    pdf.setTextColor(grayText[0], grayText[1], grayText[2]);
-    pdf.text(appr.signatureDate || '', boxX + colApprW - 2.5, approvalsY + 4.5, { align: 'right' });
-
-    // Name
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(6.8);
-    pdf.setTextColor(black[0], black[1], black[2]);
-    pdf.text(truncate(appr.name, 28), boxX + 2, approvalsY + 11.5);
-
-    // Company
-    if (appr.company) {
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(5.4);
-      pdf.setTextColor(grayText[0], grayText[1], grayText[2]);
-      pdf.text(truncate(appr.company, 30), boxX + 2, approvalsY + 16.5);
+  approvals.slice(0, 4).forEach((a, i) => {
+    const bx = left + i * colApprW;
+    drawCell(pdf, a.role, bx + 2, approvalsY + 1, 5, colApprW * 0.55 - 2.5, { size: 5.6, bold: true, color: BLACK });
+    drawCell(pdf, a.signatureDate, bx + colApprW * 0.58, approvalsY + 1, 5, colApprW * 0.42 - 2.5, {
+      size: 5.6, color: GRAY_TEXT,
+    });
+    drawCell(pdf, a.name, bx + 2, approvalsY + 7, 7, colApprW - 4, { size: 6.8, bold: true, color: BLACK });
+    if (a.company) {
+      drawCell(pdf, a.company, bx + 2, approvalsY + 14.5, 6, colApprW - 4, { size: 5.4, color: GRAY_TEXT });
     }
   });
 
-  // Save the vector PDF
-  const cleanName = fileName ? (fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`) : `${docData.header.tag || 'datasheet'}_ISA20.pdf`;
+  // ================= 5. BORDE EXTERIOR =================
+  H('thick', left, right, marginY);
+  H('thick', left, right, sheetBottomY);
+  V('thick', left, marginY, sheetBottomY);
+  V('thick', right, marginY, sheetBottomY);
+
+  // ================= 6. DIBUJO DE LÍNEAS: fino -> medio -> grueso =================
+  pdf.setLineJoin(0);
+  const flush = (w: Weight, width: number, cap: number, color: RGB) => {
+    pdf.setDrawColor(color[0], color[1], color[2]);
+    pdf.setLineWidth(width);
+    pdf.setLineCap(cap); // 0 = butt, 2 = projecting (esquinas limpias en las líneas gruesas)
+    queue[w].forEach(([x1, y1, x2, y2]) => pdf.line(x1, y1, x2, y2));
+  };
+  flush('thin', W_THIN, 0, [90, 90, 90]);
+  flush('mid', W_MID, 2, BLACK);
+  flush('thick', W_THICK, 2, BLACK);
+
+  const cleanName = fileName
+    ? fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`
+    : `${docData.header.tag || 'datasheet'}_ISA20.pdf`;
   pdf.save(cleanName);
 }
