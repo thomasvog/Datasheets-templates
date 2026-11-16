@@ -5,7 +5,8 @@ import { HeaderBar } from './components/HeaderBar';
 import { DatasheetPreview } from './components/DatasheetPreview';
 import { EditorPanel } from './components/EditorPanel';
 import { AiAssistantModal } from './components/AiAssistantModal';
-import { exportDatasheetToPdf, printDatasheet } from './utils/pdfGenerator';
+import { printDatasheet } from './utils/pdfGenerator';
+import { exportVectorPdf } from './utils/vectorPdfGenerator';
 import { CheckCircle2, AlertTriangle, Download } from 'lucide-react';
 
 export default function App() {
@@ -76,12 +77,8 @@ export default function App() {
     setIsGeneratingPdf(true);
     try {
       const fileName = `${currentDoc.header.tag || 'Datasheet'}_ISA20.pdf`;
-      await exportDatasheetToPdf(currentDoc, fileName);
-      showToast(
-        sheetOverflow
-          ? `PDF descargado: ${fileName} (⚠ parte del contenido quedó recortado)`
-          : `¡PDF descargado con éxito! (1 página A4: ${fileName})`
-      );
+      exportVectorPdf(currentDoc, fileName);
+      showToast(`PDF descargado (1 página A4, texto seleccionable): ${fileName}`);
     } catch (err: unknown) {
       console.error(err);
       alert('Error al generar el PDF: ' + (err instanceof Error ? err.message : String(err)));
@@ -158,8 +155,8 @@ export default function App() {
               <div className="no-print w-full max-w-[196mm] mb-3 flex items-center gap-2 bg-amber-950/70 border border-amber-700 text-amber-300 rounded px-3 py-1.5 text-[11px] font-semibold">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                 <span>
-                  El contenido supera la altura de la hoja y se recortará en el PDF. Quita filas o usa
-                  densidad Ultra.
+                  El contenido supera la altura de la hoja en la vista previa/impresión. El PDF comprime las
+                  filas para entrar en 1 página, pero conviene quitar filas o usar densidad Ultra.
                 </span>
               </div>
             )}
